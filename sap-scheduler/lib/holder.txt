@@ -1,0 +1,4 @@
+Include these jar files from your SAP installation to compile:
+
+sap.com~scheduler~runtime~api.jar
+scheduler~runtime_core.jar

@@ -1,0 +1,7 @@
+Include these jar files from your SAP installation to compile:
+
+com.sap.aii.adapter.file.svc_api.jar
+com.sap.aii.adapter.xi.svc_api.jar
+com.sap.aii.af.lib.mod.jar
+com.sap.aii.af.ms.ifc_api.jar
+com.sap.aii.af.sdk.jar

@@ -1,0 +1,3 @@
+Include these jar files from your SAP installation to compile:
+
+com.sap.aii.af.svc_api.jar

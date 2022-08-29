@@ -1,0 +1,7 @@
+Include these jar files from your SAP installation to compile:
+
+com.sap.aii.adapter.soap_api.jar
+com.sap.aii.adapter.soap.ejb.jar
+com.sap.aii.adapter.soap.lib.jar
+com.sap.aii.af.lib.mod.jar
+com.sap.aii.af.sdk.jar
