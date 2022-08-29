@@ -36,6 +36,8 @@ Once installed, the instrumentation will track transactions through the various 
 
 ## Building
 
+Note that because SAP is a proprietary software it is necessary for you to have access to a licensed instance of SAP.   Each component has a file named holder.txt in the lib directory that is a list of necessary jar files.   Copy those jars from your instance to the lib directory.   
+   
 Building the extension requires that Gradle is installed.
 To build the extension jars from source, follow these steps:
 ### Build single extension
