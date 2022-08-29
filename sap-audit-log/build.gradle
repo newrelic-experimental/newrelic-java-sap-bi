@@ -1,0 +1,34 @@
+
+// Build.gradle generated for instrumentation module sap-engine
+
+apply plugin: 'java'
+
+dependencies {
+   implementation fileTree(include: ['*.jar'], dir: 'lib')
+   implementation files('lib/com.sap:cpa_svc_api:1.0.0')
+   implementation files('lib/com.sap:ifc-api:1.0.0')
+   implementation files('lib/com.sap:lib.mod:1.0.0')
+   implementation files('lib/com.sap:svc_api:1.0.0')
+   implementation files('lib/com.sap:svc_core:1.0.0')
+   implementation files('lib/com.sap:ms_svc_api:1.0.0')
+
+   // New Relic Java Agent dependencies
+   implementation 'com.newrelic.agent.java:newrelic-agent:6.4.0'
+   implementation 'com.newrelic.agent.java:newrelic-api:6.4.0'
+   implementation fileTree(include: ['*.jar'], dir: '../libs')
+}
+
+jar {
+  manifest {
+    attributes 'Implementation-Title': 'com.newrelic.instrumentation.sap-audit-log'
+    attributes 'Implementation-Vendor': 'New Relic'
+    attributes 'Implementation-Vendor-Id': 'com.newrelic'
+    attributes 'Implementation-Version': 1.0
+  }
+}
+
+verifyInstrumentation {
+	passes('com.sap:ms_svc_api:1.0.0') {
+		compile("com.sap:ifc-api:1.0.0")
+		}
+}

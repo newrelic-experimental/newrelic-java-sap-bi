@@ -1,0 +1,30 @@
+
+// Build.gradle generated for instrumentation module sap-alerting
+
+apply plugin: 'java'
+
+dependencies {
+   implementation fileTree(include: ['*.jar'], dir: 'lib')
+
+   // New Relic Java Agent dependencies
+   implementation 'com.newrelic.agent.java:newrelic-agent:6.4.0'
+   implementation 'com.newrelic.agent.java:newrelic-api:6.4.0'
+   implementation fileTree(include: ['*.jar'], dir: '../libs')
+}
+
+jar {
+  manifest {
+    attributes 'Implementation-Title': 'com.newrelic.instrumentation.sap-alerting'
+    attributes 'Implementation-Vendor': 'New Relic'
+    attributes 'Implementation-Vendor-Id': 'com.newrelic'
+    attributes 'Implementation-Version': 1.0
+  }
+}
+
+verifyInstrumentation {
+  // Verifier plugin documentation:
+  // https://github.com/newrelic/newrelic-gradle-verify-instrumentation
+  // Example:
+  // passes 'javax.servlet:servlet-api:[2.2,2.5]'
+  // exclude 'javax.servlet:servlet-api:2.4.public_draft'
+}
