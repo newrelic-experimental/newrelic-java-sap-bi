@@ -4,6 +4,12 @@ import com.newrelic.agent.bridge.AgentBridge;
 import com.newrelic.api.agent.Token;
 import com.newrelic.api.agent.Trace;
 
+/**
+ * Used to wrap a Runnable so we can link what it does back to the original transaction
+ * 
+ * @author dhilpipre
+ *
+ */
 public class NRRunnable implements Runnable {
 	
 	private Runnable delegate = null;

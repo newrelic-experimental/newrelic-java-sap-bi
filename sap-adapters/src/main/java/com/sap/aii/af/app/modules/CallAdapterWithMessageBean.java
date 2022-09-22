@@ -18,6 +18,7 @@ import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.Connection;
 import com.sap.engine.interfaces.messaging.api.Message;
 
+
 @Weave
 public abstract class CallAdapterWithMessageBean {
 

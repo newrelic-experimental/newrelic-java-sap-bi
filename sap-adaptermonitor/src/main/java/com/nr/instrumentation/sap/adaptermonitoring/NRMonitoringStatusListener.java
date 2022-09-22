@@ -16,6 +16,12 @@ import com.sap.aii.af.service.administration.api.monitoring.ProcessContext;
 import com.sap.aii.af.service.administration.api.monitoring.ProcessState;
 import com.sap.aii.af.service.cpa.Channel;
 
+/**
+ * Utility class that gets called by SAP and reports SAP statuses.  Reports Channel and Process status.
+ * 
+ * @author dhilpipre
+ *
+ */
 public class NRMonitoringStatusListener implements MonitoringStatusListener {
 
 	private static final String CHANNEL_IGNORES = "SAP.Channel.ignores";

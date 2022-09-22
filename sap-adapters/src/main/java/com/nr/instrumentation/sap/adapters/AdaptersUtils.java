@@ -10,6 +10,10 @@ import com.sap.engine.interfaces.messaging.api.MessageKey;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
 
+/**
+ * Utility class to add attributes to a span
+ * 
+ */
 public class AdaptersUtils {
 
 	public static void addMessageKey(Map<String,Object> attributes, MessageKey msgKey) {

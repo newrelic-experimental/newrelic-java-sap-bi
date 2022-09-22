@@ -6,6 +6,11 @@ import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 
+/**
+ * Utility class for extracting desired attributes and using them to populate spans
+ * @author dhilpipre
+ *
+ */
 public class AdapterUtils {
 
 	public static void addMessageKey(Map<String,Object> attributes, MessageKey msgKey) {

@@ -7,6 +7,14 @@ import com.sap.aii.af.service.administration.api.monitoring.MonitoringManager;
 import com.sap.aii.af.service.administration.api.monitoring.MonitoringManagerFactory;
 import com.sap.aii.af.service.administration.impl.MonitoringManagerImpl;
 
+
+/**
+ * Utility class that registers NRMonitoringStatusListener as an SAP Monitoring Listener
+ * This allows us to report SAP statuses as custom events
+ * 
+ * @author dhilpipre
+ *
+ */
 public class AdapterCollector {
 	
 	public static boolean initialized = false;

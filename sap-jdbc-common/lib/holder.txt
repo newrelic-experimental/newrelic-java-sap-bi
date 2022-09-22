@@ -1,0 +1,3 @@
+Include these jar files from your SAP installation to compile:
+
+sap.com~tc~bl~opensql~implStandalone.jar
