@@ -7,6 +7,7 @@ import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
 
+
 @Weave(type=MatchType.BaseClass)
 public abstract class EventHandler {
 

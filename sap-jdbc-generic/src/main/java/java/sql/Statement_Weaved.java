@@ -12,7 +12,6 @@ import java.lang.reflect.Method;
 import java.util.logging.Level;
 
 import com.newrelic.agent.bridge.datastore.DatastoreMetrics;
-import com.newrelic.api.agent.Logger;
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.MatchType;
@@ -133,33 +132,25 @@ public abstract class Statement_Weaved {
 	public abstract Connection getConnection() throws SQLException;
 
 	private Connection getConnectionFromStatement() {
-		Logger logger = NewRelic.getAgent().getLogger();
 		Class<?> stmtClass = getClass();
 		String classname = stmtClass.getName();
 		Object objToUse = this;
  
 		while(stmtClass != null) {
-			logger.log(Level.FINE, "Trying to get connection for class: {0}", classname);
 			try {
 				if(classname.equals("com.sap.sql.jdbc.common.CommonStatement")) {
-					logger.log(Level.FINE, "Get nativeConnection field from CommonStatement");
 					Field nativeConnectionField = stmtClass.getDeclaredField("nativeConnection");
-					logger.log(Level.FINE, "Got nativeConnection field from CommonStatement: {0}",nativeConnectionField);
 					nativeConnectionField.setAccessible(true);;
 					Object nativeConnection = nativeConnectionField.get(objToUse);
-					logger.log(Level.FINE, "Got nativeConnection value from CommonStatement: {0}",nativeConnection);
 					if(nativeConnectionField != null) {
 						if(nativeConnection != null && nativeConnection instanceof Connection) {
 							return (Connection)nativeConnection;
 						}
 					}
 				} else if(classname.equals("com.sap.sql.jdbc.direct.DirectStatement")) {
-					logger.log(Level.FINE, "Get vendorStmt field from DirectStatement");
 					Field pStmtField = stmtClass.getDeclaredField("vendorStmt");
-					logger.log(Level.FINE, "Got vendorStmt field from DirectStatement: {0}",pStmtField);
 					pStmtField.setAccessible(true);
 					Object pStmt = pStmtField.get(objToUse);
-					logger.log(Level.FINE, "Got vendorStmt field from DirectStatement: {0}",pStmtField);
 					Class<?> prepStmtClass = pStmt.getClass();
 					Method getConnMethod = prepStmtClass.getDeclaredMethod("getConnection", new Class[] {});
 					Object obj = getConnMethod.invoke(pStmt, new Object[] {});
@@ -169,13 +160,9 @@ public abstract class Statement_Weaved {
 					}
 
 				} else if(classname.equals("com.sap.engine.services.dbpool.wrappers.StatementWrapper")) {
-					logger.log(Level.FINE, "Get stmt field from StatementWrapper");
 					Field pstmtField = stmtClass.getDeclaredField("stmt");
-					logger.log(Level.FINE, "Got stmt field from StatementWrapper: {0}",pstmtField);
 					pstmtField.setAccessible(true);
-					logger.log(Level.FINE, "Get stmt field value from StatementWrapper: {0}",pstmtField);
 					Object obj = pstmtField.get(this);
-					logger.log(Level.FINE, "Got stmt field value from StatementWrapper {0} field: {1}",pstmtField,obj);
 					if(obj != null && obj instanceof Statement_Weaved) {
 						stmtClass = obj.getClass();
 						classname = stmtClass.getName();
@@ -187,6 +174,7 @@ public abstract class Statement_Weaved {
 			} catch (Exception e) {
 				NewRelic.getAgent().getLogger().log(Level.FINER, "/{0} due to exception of type {1}",this,e.getClass().getSimpleName());
 				NewRelic.incrementCounter("SAP/JDBC/FailedToGetConnection");
+				NewRelic.incrementCounter("SAP/JDBC/FailedToGetConnection/"+objToUse.getClass().getSimpleName()+"/"+e.getClass().getSimpleName());
 				stmtClass = null;
 			}
 		}

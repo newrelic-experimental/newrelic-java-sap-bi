@@ -8,6 +8,7 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.TransactionNamePriority;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.sap.aii.af.sdk.xi.mo.Message;
 
 @Weave
 public abstract class RESTSenderChannel {
@@ -15,7 +16,7 @@ public abstract class RESTSenderChannel {
 	public abstract String getEndpoint();
 
 	
-	public HTTPResult service(String method, String requestURL, String path, byte[] data, Map<String, String> headers, String query, Map<String, String> returnHeaders) {
+	public HTTPResult service(String method, String requestURL, String path, byte[] data, Map<String, String> headers, String query, Map<String, String> returnHeaders,  Message msg) {
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
 		attributes.put("Method", method);
 		attributes.put("Path", path);
