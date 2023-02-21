@@ -21,6 +21,21 @@
 
 Instrumentation for the SAP framework.  
 
+## Agent Configuration
+Because of the way JDBC is implemented in SAP and the way that the New Relic Java Agent instruments JDBC, it is necessary to disable the agent instrumentation and use a customized set of instrumentation included with this instrumentation set.
+  
+ To disable, 
+ 1. Edit newrelic.yml
+ 2. Find the following stanza:
+<img width="1174" alt="image" src="https://user-images.githubusercontent.com/8822859/220480243-319308d3-4b4b-47d8-ad62-c18fc389dd7e.png">
+  
+  3. Add the following lines after the last line
+  
+    com.newrelic.instrumentation.jdbc-generic:
+      enabled: false
+  4. Save newrelic.yml
+ 
+
 ## Installation
 
 To install, follow the instruction in the release notes
