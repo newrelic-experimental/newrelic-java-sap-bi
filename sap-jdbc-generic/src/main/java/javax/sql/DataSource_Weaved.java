@@ -7,6 +7,8 @@
 
 package javax.sql;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.sql.Connection;
 
 import com.newrelic.agent.bridge.AgentBridge;
@@ -15,6 +17,7 @@ import com.newrelic.agent.bridge.datastore.DatastoreInstanceDetection;
 import com.newrelic.agent.bridge.datastore.DatastoreMetrics;
 import com.newrelic.agent.bridge.datastore.JdbcDataSourceConnectionFactory;
 import com.newrelic.agent.bridge.datastore.JdbcHelper;
+import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
@@ -42,18 +45,15 @@ public abstract class DataSource_Weaved {
 			Connection connection = Weaver.callOriginal();
 			AgentBridge.getAgent().getTracedMethod().addRollupMetricName(DatastoreMetrics.DATABASE_GET_CONNECTION);
 
-			DatastoreInstanceDetection.associateAddress(connection);
+			Connection toUse = connectionToUse(connection);
+			
 
-			/*
-			 * SAP SQL implementations throw execeptions here so skip if it is one of them
-			 */
-			String classname = getClass().getName();
+			DatastoreInstanceDetection.associateAddress(toUse);
 
 
-			if (!JdbcHelper.connectionFactoryExists(connection)) {
+			if (!JdbcHelper.connectionFactoryExists(toUse)) {
 
-				if (!classname.startsWith("com.sap")) {
-					String url = JdbcHelper.getConnectionURL(connection);
+					String url = JdbcHelper.getConnectionURL(toUse);
 					if (url == null) {
 						return connection;
 					}
@@ -61,7 +61,6 @@ public abstract class DataSource_Weaved {
 					DatabaseVendor vendor = JdbcHelper.getVendor(getClass(), url);
 					JdbcHelper.putConnectionFactory(url,
 							new JdbcDataSourceConnectionFactory(vendor, (DataSource) this));
-				}
 			}
 
 			return connection;
@@ -80,29 +79,28 @@ public abstract class DataSource_Weaved {
 	@Trace(leaf = true)
 	public Connection getConnection(String username, String password) throws Exception {
 		boolean firstInConnectPath = !DatastoreInstanceDetection.shouldDetectConnectionAddress();
-		try {
 
+		try {
 			DatastoreInstanceDetection.detectConnectionAddress();
 			Connection connection = Weaver.callOriginal();
 			AgentBridge.getAgent().getTracedMethod().addRollupMetricName(DatastoreMetrics.DATABASE_GET_CONNECTION);
 
-			DatastoreInstanceDetection.associateAddress(connection);
+			Connection toUse = connectionToUse(connection);
+			
 
-			if (!JdbcHelper.connectionFactoryExists(connection)) {
-				/*
-				 * SAP SQL implementations throw execeptions here so skip if it is one of them
-				 */
-				String classname = getClass().getName();
-				if (!classname.startsWith("com.sap")) {
-					String url = JdbcHelper.getConnectionURL(connection);
+			DatastoreInstanceDetection.associateAddress(toUse);
+
+
+			if (!JdbcHelper.connectionFactoryExists(toUse)) {
+
+					String url = JdbcHelper.getConnectionURL(toUse);
 					if (url == null) {
 						return connection;
 					}
 					// Detect correct vendor type and then store new connection factory based on URL
 					DatabaseVendor vendor = JdbcHelper.getVendor(getClass(), url);
 					JdbcHelper.putConnectionFactory(url,
-							new JdbcDataSourceConnectionFactory(vendor, (DataSource) this, username, password));
-				}
+							new JdbcDataSourceConnectionFactory(vendor, (DataSource) this));
 			}
 
 			return connection;
@@ -116,4 +114,61 @@ public abstract class DataSource_Weaved {
 		}
 	}
 
+	
+	private Connection connectionToUse(Connection connection) {
+		
+		Class<?> connectionClass = connection.getClass();
+		String classname = connectionClass.getName();
+		if(!classname.startsWith("com.sap") && !classname.startsWith("com.tssap")) return connection;
+		
+		Connection conn = connection;
+
+		Connection toUse = null;
+
+		while(connectionClass != null) {
+			try {
+				if(classname.equals("com.sap.sql.jdbc.common.CommonConnectionImpl")) {
+					Field nativeConnField = connectionClass.getDeclaredField("nativeConnection");
+					nativeConnField.setAccessible(true);
+					Object connObj = nativeConnField.get(conn);
+					if(connObj != null) {
+						toUse = (Connection)connObj;
+					} else {
+						toUse = conn;
+					}
+					connectionClass = null;
+				} else if(classname.equals("com.sap.engine.services.dbpool.cci.ConnectionHandle") || classname.equals("com.sap.engine.services.dbpool.cci.CommonConnectionHandle")) {
+					Method getPhyConnMethod = connectionClass.getMethod("getPhysicalConnection", new Class<?>[] {});
+					Object phyConn = getPhyConnMethod.invoke(conn, new Object[] {});
+					if(phyConn != null) {
+						connectionClass = phyConn.getClass();
+						classname = connectionClass.getName();
+						conn = (Connection) phyConn;
+					}
+				} else if(classname.equals("com.tssap.dtr.pvc.basics.transaction.SharedConnection")) {
+					Field connField = connectionClass.getDeclaredField("connection");
+					connField.setAccessible(true);
+					Object connObj = connField.get(conn);
+					if(connObj != null) {
+						connectionClass = connObj.getClass();
+						classname = connectionClass.getName();
+						conn = (Connection)connObj;
+					} else {
+						connectionClass = null;
+					}
+					
+				} else {
+					connectionClass = null;
+					toUse = conn;
+				}
+			} catch (Exception e) {
+				String exceptionClass = e.getClass().getSimpleName();
+				NewRelic.incrementCounter("SAP/JDBC/Datasource/FailedToFindConnection");
+				NewRelic.incrementCounter("SAP/JDBC/Datasource/FailedToFindConnection/"+getClass().getSimpleName()+"/"+conn.getClass().getSimpleName()+"/"+exceptionClass);
+				return connection;
+			}
+		}
+		
+		return toUse;
+	}
 }
