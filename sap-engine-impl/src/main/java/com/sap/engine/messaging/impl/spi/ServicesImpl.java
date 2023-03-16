@@ -1,4 +1,4 @@
-package com.sap.engine.interfaces.messaging.spi;
+package com.sap.engine.messaging.impl.spi;
 
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
@@ -7,10 +7,11 @@ import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
+import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 import com.sap.engine.interfaces.messaging.spi.transport.TransportPackage;
 
 @Weave(type=MatchType.Interface)
-public abstract class Services {
+public abstract class ServicesImpl {
 
 	public abstract String getConnectionName();
 
