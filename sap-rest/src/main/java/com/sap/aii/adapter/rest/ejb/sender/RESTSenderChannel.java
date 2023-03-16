@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.TracedMethod;
+import com.newrelic.api.agent.TransactionNamePriority;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 
@@ -20,10 +21,15 @@ public abstract class RESTSenderChannel {
 		attributes.put("Path", path);
 		attributes.put("RequestURL", requestURL);
 		attributes.put("Query", query);
-		attributes.put("Endpoint", getEndpoint());
+		String endpoint = getEndpoint();
+		attributes.put("Endpoint", endpoint);
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.addCustomAttributes(attributes);
-		traced.setMetricName("Custom","SAP","REST","RESTSenderChannel","service");
+		String[] names = endpoint != null && !endpoint.isEmpty() ? new String[] {"Custom","SAP","REST","RESTSenderChannel","service",endpoint} : new String[] {"Custom","SAP","REST","RESTSenderChannel","service"};
+		traced.setMetricName(names);
+		if(endpoint != null && !endpoint.isEmpty()) {
+			NewRelic.getAgent().getTransaction().setTransactionName(TransactionNamePriority.CUSTOM_LOW, false, "SAP-Rest", "SAP","Rest",endpoint);
+		}
 		return Weaver.callOriginal();
 	}
 	

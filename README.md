@@ -1,4 +1,4 @@
-[![New Relic Experimental header](https://github.com/newrelic/opensource-website/raw/master/src/images/categories/Experimental.png)](https://opensource.newrelic.com/oss-category/#new-relic-experimental)
+<a href="https://opensource.newrelic.com/oss-category/#new-relic-experimental"><picture><source media="(prefers-color-scheme: dark)" srcset="https://github.com/newrelic/opensource-website/raw/main/src/images/categories/dark/Experimental.png"><source media="(prefers-color-scheme: light)" srcset="https://github.com/newrelic/opensource-website/raw/main/src/images/categories/Experimental.png"><img alt="New Relic Open Source experimental project banner." src="https://github.com/newrelic/opensource-website/raw/main/src/images/categories/Experimental.png"></picture></a>
 
 
 ![GitHub forks](https://img.shields.io/github/forks/newrelic-experimental/newrelic-java-sap-bi?style=social)
@@ -20,6 +20,21 @@
 # New Relic Java Instrumentation for SAP
 
 Instrumentation for the SAP framework.  
+
+## Agent Configuration
+Because of the way JDBC is implemented in SAP and the way that the New Relic Java Agent instruments JDBC, it is necessary to disable the agent instrumentation and use a customized set of instrumentation included with this instrumentation set.
+  
+ To disable, 
+ 1. Edit newrelic.yml
+ 2. Find the following stanza:
+<img width="1174" alt="image" src="https://user-images.githubusercontent.com/8822859/220480243-319308d3-4b4b-47d8-ad62-c18fc389dd7e.png">
+  
+  3. Add the following lines after the last line
+  
+    com.newrelic.instrumentation.jdbc-generic:
+      enabled: false
+  4. Save newrelic.yml
+ 
 
 ## Installation
 
