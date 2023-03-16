@@ -1,5 +1,0 @@
-Include these jar files from your SAP installation to compile:
-
-sap.com~tc~cim~objmgr_lib.jar
-sap.com~tc~sld~sldcimom_lib.jar
-sap.com~tc~sld~sldclient_lib.jar

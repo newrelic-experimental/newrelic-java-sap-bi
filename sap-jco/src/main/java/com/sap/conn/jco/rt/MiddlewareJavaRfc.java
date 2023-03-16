@@ -32,6 +32,7 @@ public abstract class MiddlewareJavaRfc {
 			}
 		}
 		
+		@Trace
 		public void execute(ClientConnection client, String name, DefaultParameterList imp,DefaultParameterList imptab, DefaultParameterList chn, DefaultParameterList exp,
 				boolean supportsASXML, AbapClassException.Mode classExceptionMode) throws JCoException {
 			

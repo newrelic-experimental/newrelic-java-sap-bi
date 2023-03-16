@@ -1,10 +1,12 @@
 
-// Build.gradle generated for instrumentation module sap-perf
+// Build.gradle generated for instrumentation module sap-httpserver
 
 apply plugin: 'java'
 
 dependencies {
-   implementation 'javax.servlet:servlet-api:2.5'
+   // Declare a dependency on each JAR you want to instrument
+   // Example:
+   // implementation 'javax.servlet:servlet-api:2.5'
 
    // New Relic Java Agent dependencies
    implementation 'com.newrelic.agent.java:newrelic-agent:6.4.0'
@@ -16,7 +18,7 @@ dependencies {
 
 jar {
   manifest {
-    attributes 'Implementation-Title': 'com.newrelic.instrumentation.sap-perf'
+    attributes 'Implementation-Title': 'com.newrelic.instrumentation.sap-httpserver'
     attributes 'Implementation-Vendor': 'New Relic'
     attributes 'Implementation-Vendor-Id': 'com.newrelic'
     attributes 'Implementation-Version': 1.0
