@@ -13,7 +13,7 @@ import java.sql.Connection;
 
 import com.newrelic.agent.bridge.AgentBridge;
 import com.newrelic.agent.bridge.datastore.DatabaseVendor;
-import com.newrelic.agent.bridge.datastore.DatastoreInstanceDetection;
+//import com.newrelic.agent.bridge.datastore.DatastoreInstanceDetection;
 import com.newrelic.agent.bridge.datastore.DatastoreMetrics;
 import com.newrelic.agent.bridge.datastore.JdbcDataSourceConnectionFactory;
 import com.newrelic.agent.bridge.datastore.JdbcHelper;
@@ -38,17 +38,17 @@ public abstract class DataSource_Weaved {
 	// counts
 	@Trace(leaf = true)
 	public Connection getConnection() throws Exception {
-		boolean firstInConnectPath = !DatastoreInstanceDetection.shouldDetectConnectionAddress();
+//		boolean firstInConnectPath = !DatastoreInstanceDetection.shouldDetectConnectionAddress();
 
 		try {
-			DatastoreInstanceDetection.detectConnectionAddress();
+//			DatastoreInstanceDetection.detectConnectionAddress();
 			Connection connection = Weaver.callOriginal();
 			AgentBridge.getAgent().getTracedMethod().addRollupMetricName(DatastoreMetrics.DATABASE_GET_CONNECTION);
 
 			Connection toUse = connectionToUse(connection);
 			
 
-			DatastoreInstanceDetection.associateAddress(toUse);
+//			DatastoreInstanceDetection.associateAddress(toUse);
 
 
 			if (!JdbcHelper.connectionFactoryExists(toUse)) {
@@ -68,9 +68,9 @@ public abstract class DataSource_Weaved {
 			AgentBridge.getAgent().getMetricAggregator().incrementCounter(DatastoreMetrics.DATABASE_ERRORS_ALL);
 			throw e;
 		} finally {
-			if (firstInConnectPath) {
-				DatastoreInstanceDetection.stopDetectingConnectionAddress();
-			}
+//			if (firstInConnectPath) {
+//				DatastoreInstanceDetection.stopDetectingConnectionAddress();
+//			}
 		}
 	}
 
@@ -78,17 +78,17 @@ public abstract class DataSource_Weaved {
 	// counts
 	@Trace(leaf = true)
 	public Connection getConnection(String username, String password) throws Exception {
-		boolean firstInConnectPath = !DatastoreInstanceDetection.shouldDetectConnectionAddress();
+//		boolean firstInConnectPath = !DatastoreInstanceDetection.shouldDetectConnectionAddress();
 
 		try {
-			DatastoreInstanceDetection.detectConnectionAddress();
+//			DatastoreInstanceDetection.detectConnectionAddress();
 			Connection connection = Weaver.callOriginal();
 			AgentBridge.getAgent().getTracedMethod().addRollupMetricName(DatastoreMetrics.DATABASE_GET_CONNECTION);
 
 			Connection toUse = connectionToUse(connection);
 			
 
-			DatastoreInstanceDetection.associateAddress(toUse);
+//			DatastoreInstanceDetection.associateAddress(toUse);
 
 
 			if (!JdbcHelper.connectionFactoryExists(toUse)) {
@@ -108,9 +108,9 @@ public abstract class DataSource_Weaved {
 			AgentBridge.getAgent().getMetricAggregator().incrementCounter(DatastoreMetrics.DATABASE_ERRORS_ALL);
 			throw e;
 		} finally {
-			if (firstInConnectPath) {
-				DatastoreInstanceDetection.stopDetectingConnectionAddress();
-			}
+//			if (firstInConnectPath) {
+//				DatastoreInstanceDetection.stopDetectingConnectionAddress();
+//			}
 		}
 	}
 

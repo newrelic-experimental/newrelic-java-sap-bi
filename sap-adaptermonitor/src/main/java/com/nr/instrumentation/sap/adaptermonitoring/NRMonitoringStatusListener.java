@@ -104,7 +104,7 @@ public class NRMonitoringStatusListener implements MonitoringStatusListener {
 				count++;
 			}
 			putValue(attributes, "Process-Interface", context.getInterface());
-			putValue(attributes, "Process-InterfaceNameSpace", context.getInterfaceNamespace());
+//			putValue(attributes, "Process-InterfaceNameSpace", context.getInterfaceNamespace());
 			putValue(attributes, "Process-MessageId", context.getMessageId());
 			putValue(attributes, "Process-ReceiverParty", context.getReceiverParty());
 			putValue(attributes, "Process-ReceiverService", context.getReceiverService());
@@ -122,7 +122,7 @@ public class NRMonitoringStatusListener implements MonitoringStatusListener {
 		NewRelic.incrementCounter("Custom/ChannelStatus/"+adapterNamespace+"/"+adapterName+"/"+state.toString());
 		if(!channel_ignores.contains(adapterName)) {
 			HashMap<String, Object> attributes = new HashMap<String, Object>();
-			putValue(attributes, "AdapterNamespace", adapterNamespace);
+//			putValue(attributes, "AdapterNamespace", adapterNamespace);
 			putValue(attributes, "AdapterName", adapterName);
 			putValue(attributes, "ChannelState", state);
 			putValue(attributes, "Message", message);

@@ -10,7 +10,7 @@ public class AlertingUtils {
 
 	public static void reportAlert(ErrorInfo info) {
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
-		reportValue(attributes, "AdapterNamespace", info.getAdapterNamespace());
+//		reportValue(attributes, "AdapterNamespace", info.getAdapterNamespace());
 		reportValue(attributes, "AdapterType", info.getAdapterType());
 		reportValue(attributes, "Channel", info.getChannel());
 		reportValue(attributes, "ChannelParty", info.getChannelParty());
@@ -22,7 +22,7 @@ public class AlertingUtils {
 		reportValue(attributes, "FromParty", info.getFromParty());
 		reportValue(attributes, "FromService", info.getFromService());
 		reportValue(attributes, "InterfaceName", info.getInterfaceName());
-		reportValue(attributes, "InterfaceNamespace", info.getInterfaceNamespace());
+//		reportValue(attributes, "InterfaceNamespace", info.getInterfaceNamespace());
 		reportValue(attributes, "MessageId", info.getMessageId());
 		reportValue(attributes, "ScenarioId", info.getScenarioId());
 		reportValue(attributes, "ToParty", info.getToParty());

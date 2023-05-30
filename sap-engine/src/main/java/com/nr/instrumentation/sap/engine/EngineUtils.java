@@ -5,7 +5,6 @@ import java.util.Map;
 import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
-import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
 
 public class EngineUtils {
 	
@@ -47,13 +46,13 @@ public class EngineUtils {
 		}
 	}
 	
-	public static void addEndpoint(Map<String,Object> attributes, Endpoint endpoint) {
-		if(endpoint != null) {
-			addValue(attributes, "Endpoint-Address", endpoint.getAddress());
-			addValue(attributes, "Endpoint-Transport", endpoint.getTransport());
-		}
-	}
-	
+//	public static void addEndpoint(Map<String,Object> attributes, Endpoint endpoint) {
+//		if(endpoint != null) {
+//			addValue(attributes, "Endpoint-Address", endpoint.getAddress());
+//			addValue(attributes, "Endpoint-Transport", endpoint.getTransport());
+//		}
+//	}
+//	
 	public static void addValue(Map<String,Object> attributes, String key, Object value) {
 		if(key != null && !key.isEmpty() && value != null) {
 			attributes.put(key, value);

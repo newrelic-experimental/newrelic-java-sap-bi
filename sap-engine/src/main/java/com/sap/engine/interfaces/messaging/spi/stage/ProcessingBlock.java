@@ -13,7 +13,6 @@ import com.nr.instrumentation.sap.engine.EngineUtils;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 import com.sap.engine.interfaces.messaging.spi.Services;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
-import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
 
 
 
@@ -29,8 +28,8 @@ public abstract class ProcessingBlock {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
-		Endpoint endpoint = message.getEndpoint();
-		EngineUtils.addEndpoint(attributes, endpoint);
+//		Endpoint endpoint = message.getEndpoint();
+//		EngineUtils.addEndpoint(attributes, endpoint);
 		traced.addCustomAttributes(attributes);
 		return Weaver.callOriginal();
 	}
