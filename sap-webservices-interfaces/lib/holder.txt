@@ -1,0 +1,5 @@
+Include these jar files from your SAP installation to compile:
+
+sap.com~tc~je~clientlib~impl.jar
+sap.com~tc~je~webservices~impl.jar
+tc~ws~standalone~proxy~impl.jar

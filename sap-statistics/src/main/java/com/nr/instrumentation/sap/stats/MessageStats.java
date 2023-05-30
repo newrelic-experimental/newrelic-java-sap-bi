@@ -16,13 +16,13 @@ public class MessageStats  {
 		Insights insights = NewRelic.getAgent().getInsights();
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
 		reportObject(attributes,"ActionName", data.getActionName());
-		reportObject(attributes,"ActionType", data.getActionType());
-		reportObject(attributes,"AllInOneObjectID", data.getAllInOneObjectID());
+//		reportObject(attributes,"ActionType", data.getActionType());
+//		reportObject(attributes,"AllInOneObjectID", data.getAllInOneObjectID());
 		reportObject(attributes,"CreationTimestamp", data.getCreationTimestamp());
 		reportObject(attributes,"DeliverySemantics", data.getDeliverySemantics());
 		reportObject(attributes,"FromPartyName", data.getFromPartyName());
 		reportObject(attributes,"FromServiceName", data.getFromServiceName());
-		reportObject(attributes,"IcoScenarioIdentifier", data.getIcoScenarioIdentifier());
+//		reportObject(attributes,"IcoScenarioIdentifier", data.getIcoScenarioIdentifier());
 
 		MessageKey messageKey = data.getMessageKey();
 		if(messageKey != null) {
@@ -31,7 +31,7 @@ public class MessageStats  {
 		}
 		reportObject(attributes,"MessageSize", data.getMessageSize());
 		reportObject(attributes,"ReceiverAction", data.getReceiverActionName());
-		reportObject(attributes,"ReceiverActionType", data.getReceiverActionType());
+//		reportObject(attributes,"ReceiverActionType", data.getReceiverActionType());
 		reportObject(attributes,"RefToMessageID", data.getRefToMessageID());
 		reportObject(attributes,"SentReceiveTimestamp", data.getSentReceiveTimestamp());
 		reportObject(attributes,"TransDeliveryTimestamp", data.getTransDeliveryTimestamp());

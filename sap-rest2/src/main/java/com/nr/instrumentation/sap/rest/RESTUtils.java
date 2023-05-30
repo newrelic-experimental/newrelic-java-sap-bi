@@ -17,14 +17,14 @@ public class RESTUtils {
 		addValue(attributes, "Adapter", "REST");
 		addAction(attributes, message.getAction());
 		addValue(attributes, "CorrelationId", message.getCorrelationId());
-		addValue(attributes, "DeliverySemantics", message.getDeliverySemantics());
+//		addValue(attributes, "DeliverySemantics", message.getDeliverySemantics());
 		addParty(attributes, message.getFromParty(),"From");
 		addService(attributes, message.getFromService(), "From");
-		addValue(attributes, "MessageClass", message.getMessageClass());
+//		addValue(attributes, "MessageClass", message.getMessageClass());
 		addValue(attributes, "MessageDirection", message.getMessageDirection());
 		addMessageKey(attributes, message.getMessageKey());
 		addValue(attributes, "Protocol", message.getProtocol());
-		addValue(attributes, "RefToMessageId", message.getRefToMessageId());
+//		addValue(attributes, "RefToMessageId", message.getRefToMessageId());
 		addValue(attributes, "SequenceId", message.getSequenceId());
 		addValue(attributes, "TimeReceived", message.getTimeReceived());
 		addValue(attributes, "TimeSent", message.getTimeSent());
@@ -41,15 +41,15 @@ public class RESTUtils {
 	public static void addXIMessage(HashMap<String, Object> attributes, XIMessage message) {
 		addValue(attributes, "AckDestination", message.getAckDestination());
 		addValue(attributes, "EndPoint", message.getEndpoint());
-		addValue(attributes, "ErrorCategory", message.getErrorCategory());
-		addValue(attributes, "ErrorCode", message.getErrorCode());
+//		addValue(attributes, "ErrorCategory", message.getErrorCategory());
+//		addValue(attributes, "ErrorCode", message.getErrorCode());
 		addValue(attributes, "InterefaceName", message.getInterfaceName());
 		addValue(attributes, "MessageId", message.getMessageId());
 		addValue(attributes, "MessagePriority", message.getMessagePriority());
-		addValue(attributes, "ParentId", message.getParentId());
+//		addValue(attributes, "ParentId", message.getParentId());
 		addValue(attributes, "ProcessingMode", message.getProcessingMode());
 		addValue(attributes, "Retries", message.getRetries());
-		addValue(attributes, "ScenarioIdentifier", message.getScenarioIdentifier());
+//		addValue(attributes, "ScenarioIdentifier", message.getScenarioIdentifier());
 		addValue(attributes, "SequenceNumber", message.getSequenceNumber());
 		addValue(attributes, "Stage", message.getStage());
 

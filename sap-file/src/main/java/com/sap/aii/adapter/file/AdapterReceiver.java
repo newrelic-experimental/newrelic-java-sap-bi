@@ -1,5 +1,7 @@
 package com.sap.aii.adapter.file;
 
+import java.util.logging.Level;
+
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
@@ -14,6 +16,7 @@ public abstract class AdapterReceiver {
 
 	@Trace(dispatcher=true)
 	public Binary dispatchMessage(Message message) {
+		NewRelic.getAgent().getLogger().log(Level.FINE, new Exception("call to dispatchMessage"), "Dispatching message: {0}", message);
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName("Custom","SAP","File","AdapterReceiver",getClass().getSimpleName(),"dispatchMessage");
 		

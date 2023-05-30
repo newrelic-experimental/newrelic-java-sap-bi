@@ -21,11 +21,11 @@ import com.newrelic.api.agent.weaver.Weaver;
 public abstract class Driver_Weaved {
 
     public Connection connect(String url, Properties props) {
-        boolean firstInConnectPath = !DatastoreInstanceDetection.shouldDetectConnectionAddress();
+//        boolean firstInConnectPath = !DatastoreInstanceDetection.shouldDetectConnectionAddress();
         try {
-            DatastoreInstanceDetection.detectConnectionAddress();
+//            DatastoreInstanceDetection.detectConnectionAddress();
             Connection connection = Weaver.callOriginal();
-            DatastoreInstanceDetection.associateAddress(connection);
+//            DatastoreInstanceDetection.associateAddress(connection);
 
             if (!JdbcHelper.connectionFactoryExists(connection)) {
                 String detectedUrl = JdbcHelper.getConnectionURL(connection);
@@ -41,9 +41,9 @@ public abstract class Driver_Weaved {
 
             return connection;
         } finally {
-            if (firstInConnectPath) {
-                DatastoreInstanceDetection.stopDetectingConnectionAddress();
-            }
+//            if (firstInConnectPath) {
+//                DatastoreInstanceDetection.stopDetectingConnectionAddress();
+//            }
         }
     }
 

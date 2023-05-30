@@ -11,7 +11,6 @@ import com.newrelic.api.agent.weaver.Weaver;
 import com.nr.instrumentation.sap.engine.EngineUtils;
 import com.sap.engine.interfaces.messaging.spi.Services;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
-import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
 
 @Weave(type=MatchType.Interface)
 public abstract class Processor {
@@ -22,10 +21,10 @@ public abstract class Processor {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","Processor",getClass().getSimpleName(),"processMessage");
 		Map<String, Object> attributes = new HashMap<String, Object>();
 		EngineUtils.addMessage(attributes, message);
-		Endpoint endpoint = message.getEndpoint();
-		if(endpoint != null) {
-			EngineUtils.addEndpoint(attributes, endpoint);
-		}
+//		Endpoint endpoint = message.getEndpoint();
+//		if(endpoint != null) {
+//			EngineUtils.addEndpoint(attributes, endpoint);
+//		}
 		NewRelic.getAgent().getTracedMethod().addCustomAttributes(attributes);
 		Weaver.callOriginal();
 	}

@@ -15,7 +15,10 @@ import java.util.logging.Level;
 
 import javax.management.ObjectName;
 
+import com.newrelic.agent.bridge.AgentBridge;
 import com.newrelic.api.agent.NewRelic;
+import com.newrelic.api.agent.Trace;
+import com.newrelic.api.agent.TransactionNamePriority;
 import com.sap.aii.af.service.statistic.ApplicationManager;
 import com.sap.aii.af.service.statistic.IApplication;
 import com.sap.aii.af.service.statistic.IApplicationFactory;
@@ -50,6 +53,7 @@ public class StatsCollector implements Runnable {
 
 	public static boolean intialized = false;
 	private static Locale locale = null;
+	private static boolean isTransformed = false;
 
 	public XIDomain xiDomain;
 	public ArrayList<ObjectName> allXIComponents;
@@ -70,6 +74,13 @@ public class StatsCollector implements Runnable {
 
 		checkProfiles();
 
+	}
+	
+	private StatsCollector() {
+		if(!isTransformed) {
+			AgentBridge.instrumentation.retransformUninstrumentedClass(getClass());
+			isTransformed = true;
+		}
 	}
 
 	private static void checkProfiles() {
@@ -121,7 +132,7 @@ public class StatsCollector implements Runnable {
 						appKeys.add(regApp.getKey());
 						HashMap<String, Object> attributes = new HashMap<String, Object>();
 						putObject(attributes, "AppName", regApp.getName());
-						putObject(attributes, "AppNameSpace", regApp.getNamespace());
+//						putObject(attributes, "AppNameSpace", regApp.getNamespace());
 						putObject(attributes, "AppKey", regApp.getKey());
 						putObject(attributes, "AppPrefix", regApp.getPrefix());
 
@@ -131,9 +142,9 @@ public class StatsCollector implements Runnable {
 							int count = 1;
 							for(IProfile iProfile : profiles) {
 								putObject(attributes, "Profile-"+count+"-Name", iProfile.getName());
-								putObject(attributes, "Profile-"+count+"-Hash", iProfile.getHash());
-								putObject(attributes, "Profile-"+count+"-HashStr", new String(iProfile.getHash()));
-								putObject(attributes, "Profile-"+count+"-HashHex", HexUtil.encode(iProfile.getHash()));
+//								putObject(attributes, "Profile-"+count+"-Hash", iProfile.getHash());
+//								putObject(attributes, "Profile-"+count+"-HashStr", new String(iProfile.getHash()));
+//								putObject(attributes, "Profile-"+count+"-HashHex", HexUtil.encode(iProfile.getHash()));
 								List<String> rtKeys = iProfile.getRuntimeKeys();
 								int keyCount = 1;
 								for(String rtKey : rtKeys) {
@@ -225,7 +236,9 @@ public class StatsCollector implements Runnable {
 	}
 
 
+	@Trace(dispatcher = true)
 	public void run() {
+		NewRelic.getAgent().getTransaction().setTransactionName(TransactionNamePriority.CUSTOM_LOW, true, "StatsCollector", "StatsColletor");
 		try {
 			doInitialization();
 
@@ -240,12 +253,8 @@ public class StatsCollector implements Runnable {
 			cal.add(Calendar.HOUR, -1);
 
 			for (UIPeriod uiPeriod : timePeriods) {
-				HashMap<String, Object> attributes = new HashMap<String, Object>();
-				attributes.put("UIPeriod-Begin", uiPeriod.getBeginTimestamp());
-				attributes.put("UIPeriod-End", uiPeriod.getEndTimestamp());
 
 				com.sap.aii.af.service.statistic.PeriodType uPeriodtype = uiPeriod.getIPeriod().getType();
-				attributes.put("UIPeriod-PeriodType", uPeriodtype.getPeriodTypeName());
 				SAP_ITSAMXIPerfOvType AggrInterval = new SAP_ITSAMXIPerfOvType();
 				AggrInterval.setAggregationInterval(uPeriodtype.getPeriodTypeName());
 				Interval activeInterval = uiPeriod.getActiveInterval();
@@ -269,28 +278,19 @@ public class StatsCollector implements Runnable {
 						}
 					}
 				}
-				putObject(attributes,"AggregatedInterval", AggrInterval);
 				if(getStats) {
 
 					SAP_ITSAMXISrchCriteria searchCriteria = new SAP_ITSAMXISrchCriteria();
 					searchCriteria.setFromDate(cal.getTime());
 					searchCriteria.setToDate(end);
-					putObject(attributes,"SearchCriteria", searchCriteria);
 
 					SAP_ITSAMXIAggregation entries = util.RetreiveAggrEntitiesForAggrInterval(AggrInterval , locale, searchCriteria, thisComponentName);
-					putObject(attributes,"SAP_ITSAMXIAggregation", entries != null);
 
 					List<String> hashes = new ArrayList<String>();
 
 					if(entries != null) {
 						SAP_ITSAMXIOpStatus aggrResult = entries.getAggrOperationResult();
-						if(aggrResult != null) {
-							boolean b = aggrResult.getStatus();
-							putObject(attributes,"SAP_ITSAMXIAggregation-Status", b);
-						}
 						SAP_ITSAMXIAggrEntity[] entityArray = entries.getAggregationEntityArray();
-						int length = entityArray != null ? entityArray.length : 0;
-						putObject(attributes,"SAP_ITSAMXIAggregation-Entities", length);
 
 						if(entityArray != null) {
 							for(SAP_ITSAMXIAggrEntity entity : entityArray) {
@@ -301,14 +301,11 @@ public class StatsCollector implements Runnable {
 					}
 
 					SAP_ITSAMXIPerfOvData perfOvData = util.RetreivePerfOverviewData(searchCriteria, 0, System.currentTimeMillis(), locale, thisComponentName);
-					putObject(attributes,"SAP_ITSAMXIPerfOvData", perfOvData != null);
 
 					if(perfOvData != null) {
 						SAP_ITSAMXIOpStatus aggregOverview = perfOvData.getAggregatedOperationResult();
-						putObject(attributes, "SAP_ITSAMXIPerfOvData-Status", aggregOverview.getStatus());
 
 						SAP_ITSAMXIPerfOvType[] perfOverview = perfOvData.getPerformanceOverview();
-						putObject(attributes, "SAP_ITSAMXIPerfOvData-PerfOverviews", perfOverview != null ? perfOverview.length : 0);
 						if (perfOverview != null) {
 							for (SAP_ITSAMXIPerfOvType data : perfOverview) {
 								reportSAP_ITSAMXIPerfOvType(data);
@@ -325,9 +322,9 @@ public class StatsCollector implements Runnable {
 							if(applicationName == null) {
 								applicationName = AggrEntityHashCode;
 							}
-							putObject(attributes3, "Hash", AggrEntityHashCode);
+//							putObject(attributes3, "Hash", AggrEntityHashCode);
 							putObject(attributes3,"Application",hashesToName.get(AggrEntityHashCode));
-							putObject(attributes3, "PerfOverviewType", perfData);
+//							putObject(attributes3, "PerfOverviewType", perfData);
 
 							SAP_ITSAMXIPerfData moduleData = util.RetrivePerformanceModuleData(AggrEntityHashCode, perfData, locale, thisComponentName);
 							putObject(attributes3, "ModuleData", moduleData != null);
@@ -336,7 +333,6 @@ public class StatsCollector implements Runnable {
 								putObject(attributes3, "AggregationStatus", aggrResult.getStatus());
 								SAP_ITSAMXIPerfDataType[] perfData2 = moduleData.getPerformanceData();
 								int length = perfData2 != null ? perfData2.length : 0;
-								putObject(attributes, "ModuleData-PerfData", length);
 								for(SAP_ITSAMXIPerfDataType dataType : perfData2) {
 									reportSAP_ITSAMXIPerfDataType(dataType, applicationName);
 								}
@@ -353,7 +349,6 @@ public class StatsCollector implements Runnable {
 						}
 					}
 				}
-				NewRelic.getAgent().getInsights().recordCustomEvent("PeriodPerformance", attributes);
 			}
 
 
@@ -402,12 +397,12 @@ public class StatsCollector implements Runnable {
 		putObject(attributes, "AvgProcessTime", status.getAvgPrTime());
 		putObject(attributes, "Direction", status.getDirection());
 		String hashCode = status.getHashCode();
-		putObject(attributes, "HashCode", hashCode);
+//		putObject(attributes, "HashCode", hashCode);
 		putObject(attributes,"ProfileName",hashesToName.get(hashCode));
 
 		putObject(attributes, "InboundChannel", status.getInboundChannel());
 		putObject(attributes, "Interface", status.getInterface());
-		putObject(attributes, "InterfaceNameSpace", status.getInterfaceNameSpace());
+//		putObject(attributes, "InterfaceNameSpace", status.getInterfaceNameSpace());
 		putObject(attributes, "MaxMsgSize", status.getMaxMsgSize());
 		putObject(attributes, "MinMsgSize", status.getMinMsgSize());
 		putObject(attributes, "MsgCountForAggrEntity", status.getMsgCountForAggrEntity());

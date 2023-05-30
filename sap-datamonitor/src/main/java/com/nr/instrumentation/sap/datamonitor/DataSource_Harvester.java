@@ -24,9 +24,18 @@ import com.sap.sql.statistics.QueryStatistics;
 public class DataSource_Harvester implements HarvestListener, AgentConfigListener {
 
 	public static boolean initialized = false;
+	// default don't collect
 	private static boolean reportQueryStats = false;
+	// default don't collect
 	private static boolean reportDMLStats = false;
+	// default collect
+	private static boolean reportDSStats = true;
+	// default collect
+	private static boolean reportDSInfo = true;
+
 	private static final String REPORT_QUERIES = "SAP.DataMonitor.Queries.Report";
+	private static final String REPORT_DSINFO = "SAP.DataMonitor.Datastore.Info.Report";
+	private static final String REPORT_DSSTATS = "SAP.DataMonitor.Datastore.Stats.Report";
 	private static final String REPORT_DML = "SAP.DataMonitor.DML.Report";
 	
 	public static void init() {
@@ -45,23 +54,31 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 
 	@Override
 	public void beforeHarvest(String arg0, StatsEngine arg1) {
-		ConnectionMonitor monitor = ConnectionMonitorImpl.getInstance();
-		DatabaseStatistics dbStats = monitor.getDatabaseStatistics();
-		if(dbStats != null) {
-			reportDBStats(dbStats);
+		boolean notSkipping = reportQueryStats || reportDMLStats || reportDSStats || reportDSInfo;
+		// Don't proceed if we're not going to track anything
+		if(!notSkipping) return;
+		
+		if (reportDSStats) {
+			ConnectionMonitor monitor = ConnectionMonitorImpl.getInstance();
+			DatabaseStatistics dbStats = monitor.getDatabaseStatistics();
+			if (dbStats != null) {
+				reportDBStats(dbStats);
+			} 
 		}
 		
-		DataSourceManager dsMgr = DataSourceManager.getInstance();
-		if(dsMgr != null) {
-			String[] dsNames = dsMgr.getDataSourceNames();
-			for(String dsName : dsNames) {
-				try {
-					DataSourceInfo info = dsMgr.getDataSourceInfo(dsName);
-					reportDS(info);
-				} catch (SQLException e) {
-					NewRelic.getAgent().getLogger().log(Level.FINEST, e, "Failed to get datasource info");
+		if (reportDSInfo) {
+			DataSourceManager dsMgr = DataSourceManager.getInstance();
+			if (dsMgr != null) {
+				String[] dsNames = dsMgr.getDataSourceNames();
+				for (String dsName : dsNames) {
+					try {
+						DataSourceInfo info = dsMgr.getDataSourceInfo(dsName);
+						reportDS(info);
+					} catch (SQLException e) {
+						NewRelic.getAgent().getLogger().log(Level.FINEST, e, "Failed to get datasource info");
+					}
 				}
-			}
+			} 
 		}
 		
 	}
@@ -72,20 +89,20 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 		putValue(attributes, "DatabaseServerName", info.getDatabaseServerName());
 		putValue(attributes, "DataSourceName", info.getDataSourceName());
 		putValue(attributes, "IdleConnectionCount", info.getIdleConnectionCount());
-		putValue(attributes, "InitConnectionCount", info.getInitConnections());
+//		putValue(attributes, "InitConnectionCount", info.getInitConnections());
 		putValue(attributes, "MaxConnections", info.getMaxConnections());
 		putValue(attributes, "SumErrorConnectionRequestCount", info.getSumErrorConnectionRequestCount());
-		putValue(attributes, "SumErrorConnectionRequestRate", info.getSumErrorConnectionRequestRate());
+//		putValue(attributes, "SumErrorConnectionRequestRate", info.getSumErrorConnectionRequestRate());
 		putValue(attributes, "SumSuccessConnectionRequestCount", info.getSumSuccessConnectionRequestCount());
-		putValue(attributes, "SumSuccessConnectionRequestRate", info.getSumSuccessConnectionRequestRate());
+//		putValue(attributes, "SumSuccessConnectionRequestRate", info.getSumSuccessConnectionRequestRate());
 		putValue(attributes, "SumTimeoutConnectionRequestCount", info.getSumTimeoutConnectionRequestCount());
-		putValue(attributes, "SumTimeoutConnectionRequestRate", info.getSumTimeoutConnectionRequestRate());
+//		putValue(attributes, "SumTimeoutConnectionRequestRate", info.getSumTimeoutConnectionRequestRate());
 		putValue(attributes, "UsedConnectionCount", info.getUsedConnectionCount());
-		putValue(attributes, "UsedConnectionRate", info.getUsedConnectionRate());
+//		putValue(attributes, "UsedConnectionRate", info.getUsedConnectionRate());
 		putValue(attributes, "ValidConnectionRate", info.getValidConnectionRate());
 		putValue(attributes, "VendorName", info.getVendorName());
 		putValue(attributes, "WaitingConnectionRequestCount", info.getWaitingConnectionRequestCount());
-		putValue(attributes, "WaitingConnectionRequestRate", info.getWaitingConnectionRequestRate());
+//		putValue(attributes, "WaitingConnectionRequestRate", info.getWaitingConnectionRequestRate());
 		NewRelic.getAgent().getInsights().recordCustomEvent("DataSourceInfo", attributes);
 	}
 
@@ -291,6 +308,37 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 				reportDMLStats = b;
 			}
 		}
-		
+		value = config.getValue(REPORT_DSINFO);
+		if(value != null) {
+			Boolean b = null;
+			if(value instanceof Boolean) {
+				b = (Boolean)value;
+			} else if(value instanceof String) {
+				String s = (String)value;
+				try {
+					b = Boolean.parseBoolean(s);
+				} catch (Exception e) {
+				}
+			}
+			if(b != null && b != reportDSInfo) {
+				reportDSInfo = b;
+			}
+		}
+		value = config.getValue(REPORT_DSSTATS);
+		if(value != null) {
+			Boolean b = null;
+			if(value instanceof Boolean) {
+				b = (Boolean)value;
+			} else if(value instanceof String) {
+				String s = (String)value;
+				try {
+					b = Boolean.parseBoolean(s);
+				} catch (Exception e) {
+				}
+			}
+			if(b != null && b != reportDSStats) {
+				reportDSStats = b;
+			}
+		}
 	}
 }
