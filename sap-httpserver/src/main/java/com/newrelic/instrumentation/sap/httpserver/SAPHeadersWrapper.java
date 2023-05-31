@@ -10,11 +10,11 @@ import com.newrelic.api.agent.HeaderType;
 import com.newrelic.api.agent.Headers;
 import com.sap.engine.services.httpserver.lib.headers.MimeHeaders;
 
-public class InboundWrapper implements Headers {
+public class SAPHeadersWrapper implements Headers {
 	
 	private MimeHeaders headers = null;
 	
-	public InboundWrapper(MimeHeaders h) {
+	public SAPHeadersWrapper(MimeHeaders h) {
 		headers = h;
 	}
 
