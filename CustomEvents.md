@@ -1,4 +1,4 @@
-### Custom Events for SAP
+# Custom Events for SAP
 
 The SAP instrumentation collects a number of custom events that can help to monitor your SAP instance via NRQL and dashboards.   
   
@@ -9,14 +9,14 @@ The SAP instrumentation collects a number of custom events that can help to moni
 3. QueryStatistics - statistics related to individual queries.  These events are off by default since this will generate a number of events.  See the configuration section on enabling. he attribute SQL is the query that is run.  
 4. DMLStatistics - Statistics related to individual queries. These events are off by default due to the high number of events generated. The attribute SQL is the query that is run. See the configuration section on how to enable these statistics.   
    
-# Configuration    
+### Configuration    
 To enable Queury and/or DML stats, edit the SAP stanza of newrelic.yml (create if necessary)   
 &nbsp;&nbsp;SAP:  
-&nbsp;&nbsp;&nbsp;&nbsp;DataMonitor:
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Queries:
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Report: true
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DML:
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Report: true
+&nbsp;&nbsp;&nbsp;&nbsp;DataMonitor:   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Queries:   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Report: true  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DML:   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Report: true  
    
 ## JMS   
   
