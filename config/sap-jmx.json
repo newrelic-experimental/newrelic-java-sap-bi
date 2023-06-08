@@ -1,0 +1,73 @@
+
+        "mbeans": [
+                {
+                        "domain": "com.sap.default",
+                        "objectName": "name=\"/Services/Http Provider/General/ThreadPoolSize\",*",
+                        "attributes": [
+                                "Value"
+                        ]
+                },
+                {
+                        "domain": "com.sap.default",
+                        "objectName": "name=\"/Services/Http Provider/General/Requests frequency\",*",
+                        "attributes": [
+                                "Frequency"
+                        ]
+                },
+                {
+                        "domain": "com.sap.default",
+                        "objectName": "name=\"/Services/Http Provider/General/ThreadsInProcessRate\",*",
+                        "attributes": [
+                                "Value"
+                        ]
+                },
+                {
+                        "domain": "com.sap.default",
+                        "objectName": "name=FailedServicesMonitorMBean,*",
+                        "attributes": [
+                                "FailedServices"
+                        ]
+                },
+                {
+                        "domain": "com.sap.default",
+                        "objectName": "name=DiskSpaceMonitorsMBean,*",
+                        "attributes": [
+                                "FreeDiskSpace",
+                                "TotalDiskSpace"
+                        ]
+                },
+               {
+                        "domain": "com.sap.default",
+                        "objectName": "name=GCProblemReportingMonitorsMBean,*",
+                        "attributes": [
+                                "GcRatio",
+                                "ConcurrentGcRatio",
+                                "GcSpinningDueToJavaHeap",
+                                "GcSpinningDueToPermGen",
+                                "JavaHeapMemoryShortages",
+                                "PermGenMemoryShortages",
+                                "OutOfMemoryErrorCount"
+                        ]
+                },
+                {
+                        "domain": "com.sap.default",
+                        "objectName": "name=SystemProblemReportingMonitorsMBean,*",
+                        "attributes": [
+                                "FullGcWorkTimeRatio",
+                                "GcWorkTimeRatio",
+                                "SystemLoadAverage"
+                        ]
+                },
+                {
+                        "domain": "com.sap.default",
+                        "objectName": "name=VMAggregatedStatesMonitorsMBean,*",
+                        "attributes": [
+                                "GCProblems",
+                                "SystemProblems"
+                        ]
+                }
+
+        ]
+
+
+}
