@@ -35,7 +35,9 @@ Because of the way JDBC is implemented in SAP and the way that the New Relic Jav
       enabled: false
   4. Save newrelic.yml
  
-
+## JMX Collection  
+To configure the Java Agent to collect SAP related JMX metrics see: https://github.com/newrelic-experimental/newrelic-java-sap-bi/blob/main/JMX-Configuration.md.   
+  
 ## Installation
 
 To install, follow the instruction in the release notes
