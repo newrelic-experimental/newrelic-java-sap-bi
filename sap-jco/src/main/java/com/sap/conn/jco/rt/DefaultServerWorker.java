@@ -19,15 +19,15 @@ public abstract class DefaultServerWorker {
 		NewRelic.getAgent().getTransaction().setTransactionName(TransactionNamePriority.CUSTOM_LOW, false, "SAP-JCO", new String[] { "JCOFunction", funcName });
 		Weaver.callOriginal();
 	}
-	
+
 	@Weave(type = MatchType.BaseClass)
 	public static abstract class CallDispatcher {
 		
 		@Trace
-		protected Object handleRequest(JCoServerContext var1, JCoFunction var2) {
-			NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","JCO","CallDispatcher",getClass().getSimpleName(),"handleRequest",var2.getName());
+		protected Object handleRequest(JCoServerContext serverCtx, JCoFunction jcoFunction) {
+			String funcName = jcoFunction.getName();
+			NewRelic.getAgent().getTracedMethod().setMetricName(new String[] { "Custom", "CallDispatcher", "handleRequest", funcName });
 			return Weaver.callOriginal();
 		}
 	}
-
 }
