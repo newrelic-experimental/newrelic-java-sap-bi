@@ -19,7 +19,7 @@ public abstract class JCoIDoc {
 	public static void send(IDocDocument idoc, char idocVersion, JCoDestination destination, String tid, String queueName) {
 		HashMap<String, Object> attributes = new HashMap<>();
 		SAPIDocsUtils.addIDocDocument(attributes, idoc);
-		NewRelic.getAgent().getInsights().recordCustomEvent("IDoc-Send", attributes);
+		NewRelic.getAgent().getInsights().recordCustomEvent("IDOC-SEND", attributes);
 		attributes.clear();
 		
 		SAPIDocsUtils.addAttribute(attributes, "QueueName", queueName);
@@ -36,7 +36,7 @@ public abstract class JCoIDoc {
 		HashMap<String, Object> attributes = new HashMap<>();
 		for (int i = 0; i < idocs.length; i++) {
 			SAPIDocsUtils.addIDocDocument(attributes, idocs[i]);
-			NewRelic.getAgent().getInsights().recordCustomEvent("IDoc-Send", attributes);
+			NewRelic.getAgent().getInsights().recordCustomEvent("IDOC-SEND", attributes);
 		}
 		attributes.clear();
 		
@@ -52,12 +52,12 @@ public abstract class JCoIDoc {
 	public static void send(IDocDocumentList idocList, char idocVersion, JCoDestination destination, String tid, String queueName) {
 		HashMap<String, Object> attributes = new HashMap<>();
 		SAPIDocsUtils.addIDocDocumentList(attributes, idocList);
-		NewRelic.getAgent().getInsights().recordCustomEvent("IDocList-Send", attributes);
+		NewRelic.getAgent().getInsights().recordCustomEvent("IDOCLIST-SEND", attributes);
 		
 		for(int j=0;j<idocList.getNumDocuments();j++) {
 			attributes.clear();
 			SAPIDocsUtils.addIDocDocument(attributes, idocList.get(j));
-			NewRelic.getAgent().getInsights().recordCustomEvent("IDoc-Send", attributes);
+			NewRelic.getAgent().getInsights().recordCustomEvent("IDOC-SEND", attributes);
 		}
 		attributes.clear();
 		
@@ -74,13 +74,13 @@ public abstract class JCoIDoc {
 		for(IDocDocumentList idocList : idocLists) {
 			attributes.clear();
 			SAPIDocsUtils.addIDocDocumentList(attributes, idocList);
-			NewRelic.getAgent().getInsights().recordCustomEvent("IDocList-Send", attributes);
+			NewRelic.getAgent().getInsights().recordCustomEvent("IDOCLIST-SEND", attributes);
 
 
 			for(int j=0;j<idocList.getNumDocuments();j++) {
 				attributes.clear();
 				SAPIDocsUtils.addIDocDocument(attributes, idocList.get(j));
-				NewRelic.getAgent().getInsights().recordCustomEvent("IDoc-Send", attributes);
+				NewRelic.getAgent().getInsights().recordCustomEvent("IDOC-SEND", attributes);
 			}
 		}
 

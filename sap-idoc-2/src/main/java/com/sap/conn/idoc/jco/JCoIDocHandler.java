@@ -2,6 +2,7 @@ package com.sap.conn.idoc.jco;
 
 import java.util.HashMap;
 
+import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
@@ -17,17 +18,20 @@ public abstract class JCoIDocHandler {
 	@Trace
 	public void handleRequest(JCoServerContext p0, IDocDocumentList idocList) {
 
-		HashMap<String, Object> attributes = new HashMap<>();
+		HashMap<String, Object> listAttributes = new HashMap<>();
 		
-		SAPIDocsUtils.addIDocDocumentList(attributes, idocList);
+		SAPIDocsUtils.addIDocDocumentList(listAttributes, idocList);
+		NewRelic.getAgent().getInsights().recordCustomEvent("IDOCLIST_RECV", listAttributes);
 		
 		Weaver.callOriginal();
 		
 		int n = idocList.getNumDocuments();
 		
 		for(int i=0; i<n;i++) {
+			HashMap<String, Object> docAttributes = new HashMap<>();
 			IDocDocument doc = idocList.get(i);
-			SAPIDocsUtils.addIDocDocument(attributes, doc);
+			SAPIDocsUtils.addIDocDocument(docAttributes, doc);
+			NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);
 		}
 		
 	}
