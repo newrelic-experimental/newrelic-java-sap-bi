@@ -7,16 +7,7 @@
 
 package java.sql;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -256,119 +247,6 @@ public abstract class PreparedStatement_Weaved {
 		params[index] = value;
 	}
 
-	private String getSQLFromPrepared() {
-		Class<?> stmtClass = getClass();
-
-		String classname = stmtClass.getName();
-		Object objToUse = this;
-		while(stmtClass != null) {
-			try {
-				if(classname.equals("com.sap.engine.services.dbpool.wrappers.PreparedStatementWrapper")) {
-					Field pstmtField = stmtClass.getDeclaredField("pstmt");
-					pstmtField.setAccessible(true);
-					Object pstmt = pstmtField.get(objToUse);
-					if(pstmt != null) {
-						PreparedStatement_Weaved newStmt = (PreparedStatement_Weaved)pstmt;
-						if(newStmt.preparedSql != null) {
-							return newStmt.preparedSql;
-						}
-						stmtClass = pstmt.getClass();
-						classname = stmtClass.getName();
-						objToUse = pstmt;
-					} else {
-						stmtClass = null;
-					}
-
-				} else if(classname.equals("com.sap.sql.jdbc.common.CommonPreparedStatement")) {
-					PreparedStatement_Weaved newStmt = (PreparedStatement_Weaved)objToUse;
-					if(newStmt.preparedSql != null) {
-						return newStmt.preparedSql;
-					}
-
-					Method getSqlMethod = stmtClass.getDeclaredMethod("getSql", new Class<?>[] {});
-					Object result = getSqlMethod.invoke(objToUse, new Object[] {});
-					if(result != null) {
-						return result.toString();
-					}
-
-					Field pstmtField = stmtClass.getDeclaredField("wrappedPrepStmt");
-					pstmtField.setAccessible(true);
-					Object pstmt = pstmtField.get(objToUse);
-					if(pstmt != null) {
-						stmtClass = pstmt.getClass();
-						classname = stmtClass.getName();
-						objToUse = pstmt;
-					} else {
-						stmtClass = null;
-					}
-
-				} else if(classname.equals("com.sap.sql.jdbc.direct.DirectPreparedStatement")) {
-					PreparedStatement_Weaved newStmt = (PreparedStatement_Weaved)objToUse;
-					if(newStmt.preparedSql != null) {
-						return newStmt.preparedSql;
-					}
-
-					Field prepStmtField = stmtClass.getDeclaredField("prepStmt");
-					prepStmtField.setAccessible(true);
-					Object prepStmt = prepStmtField.get(objToUse);
-					if(prepStmt != null) {
-						stmtClass = prepStmt.getClass();
-						classname = stmtClass.getName();
-						objToUse = prepStmt;
-					} else {
-						stmtClass = null;
-					}
-				} else if(classname.equals("com.sap.dbtech.jdbc.trace.PreparedStatement")) {
-					PreparedStatement_Weaved newStmt = (PreparedStatement_Weaved)objToUse;
-					if(newStmt.preparedSql != null) {
-						return newStmt.preparedSql;
-					}
-
-					Field innerField = stmtClass.getDeclaredField("_inner");
-					innerField.setAccessible(true);
-					Object prepStmt = innerField.get(objToUse);
-					if(prepStmt != null) {
-						stmtClass = prepStmt.getClass();
-						classname = stmtClass.getName();
-						objToUse = prepStmt;
-					} else {
-						stmtClass = null;
-					}
-				} else if(classname.equals("com.sap.dbtech.jdbc.CallableStatementSapDBFinalize") || classname.equals("com.sap.dbtech.jdbc.CallableStatementSapDB")) {
-					PreparedStatement_Weaved newStmt = (PreparedStatement_Weaved)objToUse;
-					if(newStmt.preparedSql != null) {
-						return newStmt.preparedSql;
-					}
-
-					if(classname.equals("com.sap.dbtech.jdbc.CallableStatementSapDBFinalize")) {
-						stmtClass = stmtClass.getSuperclass();
-					}
-					Field parseinfoField = stmtClass.getDeclaredField("parseinfo");
-					parseinfoField.setAccessible(true);
-					Object parseInfo = parseinfoField.get(objToUse);
-					if(parseInfo != null) {
-						Class<?> parseInfoClass = parseInfo.getClass();
-
-						Field sqlCmdField = parseInfoClass.getDeclaredField("sqlCmd");
-						sqlCmdField.setAccessible(true);
-						Object sqlCmd = sqlCmdField.get(parseInfo);
-						if(sqlCmd != null) {
-							return sqlCmd.toString();
-						}
-					}
-				} else {
-					stmtClass = null;
-					NewRelic.getAgent().getLogger().log(Level.FINE, "Could not find SQL for {0}", objToUse);
-				}
-			} catch (Exception e) {
-				NewRelic.incrementCounter("/SAP/JDBC/getSQLFromPrepared/Failed");
-				NewRelic.incrementCounter("/SAP/JDBC/getSQLFromPrepared/Failed/"+e.getClass().getSimpleName());
-				stmtClass = null;
-			}
-		}
-		return null;
-
-	}
 	
 	private boolean checkClass() {
 		if(this instanceof java.sql.PreparedStatement) {
@@ -377,114 +255,10 @@ public abstract class PreparedStatement_Weaved {
 			if(clazzPackage != null) {
 				String packageName = clazzPackage.getName();
 				if(!packageName.startsWith("com.sap")) return true;
-//				if(packageName.startsWith("com.sap.dbtech")) return true;
 			}
 		}
 		return false;
 
 	}
-
-//	private Connection getConnectionFromPrepared() {
-//		Class<?> stmtClass = getClass();
-//
-//		String classname = stmtClass.getName();
-//		Object objToUse = this;
-//
-//		while(stmtClass != null) {
-//			try {
-//				if(classname.equals("com.sap.sql.jdbc.common.CommonPreparedStatement")) {
-//					Field extPreStmt = stmtClass.getDeclaredField("wrappedPrepStmt");
-//					extPreStmt.setAccessible(true);;
-//					Object extStmt = extPreStmt.get(objToUse);
-//					if(extStmt != null) {
-//						objToUse = extStmt;
-//						stmtClass = extStmt.getClass();
-//						classname = stmtClass.getName();
-//					} else {
-//						stmtClass = null;
-//						NewRelic.incrementCounter("SAP/JDBC/CommonPreparedStatement/Failed");
-//					}
-//				} else if(classname.equals("com.sap.sql.jdbc.direct.DirectPreparedStatement")) {
-//					Field pStmtField = stmtClass.getDeclaredField("prepStmt");
-//					pStmtField.setAccessible(true);
-//					Object pStmt = pStmtField.get(objToUse);
-//					Class<?> prepStmtClass = pStmt.getClass();
-//					if (!prepStmtClass.getName().startsWith("com.sap.sql")) {
-//						Method getConnMethod = prepStmtClass.getDeclaredMethod("getConnection", new Class[] {});
-//						Object obj = getConnMethod.invoke(pStmt, new Object[] {});
-//						if (obj != null && obj instanceof Connection) {
-//							return (Connection) obj;
-//						} 
-//					} else {
-//						stmtClass = prepStmtClass;
-//						objToUse = pStmt;
-//						classname = stmtClass.getName();
-//					}
-//
-//				} else if(classname.equals("com.sap.engine.services.dbpool.wrappers.PreparedStatementWrapper")) {
-//					Field pstmtField = stmtClass.getDeclaredField("pstmt");
-//					pstmtField.setAccessible(true);
-//					Object obj = pstmtField.get(objToUse);
-//					if(obj != null && obj instanceof PreparedStatement_Weaved) {
-//						stmtClass = obj.getClass();
-//						classname = stmtClass.getName();
-//						objToUse = obj;
-//					} else {
-//						stmtClass = null;
-//						NewRelic.incrementCounter("SAP/JDBC/PreparedStatementWrapper/Failed");
-//					}
-//				} else if(classname.equals("com.tssap.dtr.pvc.basics.transaction.PreparedStatementReleasingConnection")) {
-//					Field wrappedField = stmtClass.getDeclaredField("wrappedPreparedStatement");
-//					wrappedField.setAccessible(true);
-//					Object stmtObj = wrappedField.get(objToUse);
-//					if(stmtObj != null) {
-//						stmtClass = stmtObj.getClass();
-//						classname = stmtClass.getName();
-//						objToUse = stmtObj;
-//					}
-//				} else if(classname.startsWith("com.sap.jdbc")) {
-//					Class<?> superClass = stmtClass.getSuperclass();
-//					if(superClass != null) {
-//						String cName = superClass.getName();
-//						if(cName.equals("com.sap.sql.jdbc.basic.BasicPreparedStatement")) {
-//							Field pstmtField = stmtClass.getDeclaredField("prepStmt");
-//							pstmtField.setAccessible(true);
-//							Object pStmtObj = pstmtField.get(objToUse);
-//							if(pStmtObj != null) {
-//								stmtClass = pStmtObj.getClass();
-//								objToUse = pStmtObj;
-//								classname = stmtClass.getName();
-//							}
-//						} else {
-//							stmtClass = null;
-//						}
-//					} else {
-//						stmtClass = null;
-//					}
-//
-//
-//				} else {
-//					stmtClass = null;
-//				}
-//			} catch (Exception e) {
-//				NewRelic.getAgent().getLogger().log(Level.FINER, "Failed to get connection from {0} due to exception of type {1}",objToUse,e.getClass().getSimpleName());
-//				NewRelic.incrementCounter("SAP/JDBC/FailedToGetConnection");
-//				NewRelic.incrementCounter("SAP/JDBC/FailedToGetConnection/"+objToUse.getClass().getSimpleName()+"/"+e.getClass().getSimpleName());
-//
-//				stmtClass = null;
-//			}
-//		}
-//
-//		try {
-//			stmtClass = objToUse.getClass();
-//			Method getConnMethod = stmtClass.getDeclaredMethod("getConnection", new Class<?>[] {});
-//			Object conn = getConnMethod.invoke(objToUse, new Object[] {});
-//			return (Connection)conn;
-//
-//		} catch (Exception e) {
-//			return null;
-//		}
-//	}
-
 
 }
