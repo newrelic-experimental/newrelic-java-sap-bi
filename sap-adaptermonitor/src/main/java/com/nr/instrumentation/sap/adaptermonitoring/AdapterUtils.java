@@ -2,6 +2,7 @@ package com.nr.instrumentation.sap.adaptermonitoring;
 
 import java.util.Map;
 
+import com.sap.aii.af.service.administration.api.monitoring.ChannelState;
 import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
@@ -51,9 +52,47 @@ public class AdapterUtils {
 		}
 	}
 	
+	public static void addChannelFull(Map<String,Object> attributes, Channel channel) {
+		if(channel != null) {
+			addValue(attributes, "Channel-Name", channel.getChannelName());
+			addValue(attributes, "Channel-AdapterNamespace", channel.getAdapterNamespace());
+			addValue(attributes, "Channel-AdapterType", channel.getAdapterType());
+			addValue(attributes, "Channel-Direction", channel.getDirection());
+			addValue(attributes, "Channel-EngineName", channel.getEngineName());
+			addValue(attributes, "Channel-EngineType", channel.getEngineType());
+			addValue(attributes, "Channel-ObjectName", channel.getObjectName());
+			addValue(attributes, "Channel-ObjectType", channel.getObjectType());
+			addValue(attributes, "Channel-Party", channel.getParty());
+			addValue(attributes, "Channel-Service", channel.getService());
+			addValue(attributes, "Channel-AdapterSWCV", channel.getAdapterSWCV());
+			addValue(attributes, "Channel-FromPartyAgency", channel.getFromPartyAgency());
+			addValue(attributes, "Channel-FromPartySchema", channel.getFromPartySchema());
+			addValue(attributes, "Channel-MsgProt", channel.getMsgProt());
+			addValue(attributes, "Channel-MsgProtVers", channel.getMsgProtVers());
+			addValue(attributes, "Channel-ObjectId", channel.getObjectId());
+			addValue(attributes, "Channel-ObjectName", channel.getObjectName());
+			addValue(attributes, "Channel-ObjectType", channel.getObjectType());
+			addValue(attributes, "Channel-ToPartyAgency", channel.getToPartyAgency());
+			addValue(attributes, "Channel-ToPartySchema", channel.getToPartySchema());
+			addValue(attributes, "Channel-TransProt", channel.getTransProt());
+			addValue(attributes, "Channel-TransProtVers", channel.getTransProtVers());
+		}
+	}
+		
+	
+	public static void addChannelState(Map<String,Object> attributes, ChannelState state) {
+		if(state != null) {
+			addValue(attributes, "ChannelState", state);
+		}
+	}
+	
 	public static void addValue(Map<String,Object> attributes, String key, Object value) {
 		if(key != null && !key.isEmpty() && value != null) {
-			attributes.put(key, value);
+			String objectString = value.toString();
+			// don't report empty values
+			if(!objectString.isEmpty()) {
+				attributes.put(key, value);
+			}
 		}
 	}
 

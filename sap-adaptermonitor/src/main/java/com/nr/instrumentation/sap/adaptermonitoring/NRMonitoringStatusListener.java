@@ -121,23 +121,24 @@ public class NRMonitoringStatusListener implements MonitoringStatusListener {
 	public void reportChannelStatus(String adapterNamespace, String adapterName, Channel[] channels, ChannelState state,String message, Object[] messageParams) {
 		NewRelic.incrementCounter("Custom/ChannelStatus/"+adapterNamespace+"/"+adapterName+"/"+state.toString());
 		if(!channel_ignores.contains(adapterName)) {
-			HashMap<String, Object> attributes = new HashMap<String, Object>();
-//			putValue(attributes, "AdapterNamespace", adapterNamespace);
-			putValue(attributes, "AdapterName", adapterName);
-			putValue(attributes, "ChannelState", state);
-			putValue(attributes, "Message", message);
-			int count = 1;
-			for(Object param : messageParams) {
-				putValue(attributes, "MessageParam-"+count, param);
-				count++;
-			}
-			count = 1;
 			for(Channel channel : channels) {
-				putValue(attributes, "Channel-"+count, channel.getChannelName());
-				count++;
+				HashMap<String, Object> attributes = new HashMap<String, Object>();
+				AdapterUtils.addChannelFull(attributes, channel);
+				AdapterUtils.addChannelState(attributes, state);
+				String adapterType = channel.getAdapterType();
+				if(!adapterName.equals(adapterType)) {
+					putValue(attributes,"AdapterName",adapterName);
+				}
+				putValue(attributes,"Message",message);
+				int count = 1;
+				for(Object param : messageParams) {
+					putValue(attributes, "MessageParam-"+count, param);
+					count++;
+				}
+
+				NewRelic.getAgent().getInsights().recordCustomEvent("ChannelStatus", attributes);
 			}
 
-			NewRelic.getAgent().getInsights().recordCustomEvent("ChannelsStatus", attributes);
 		}
 	}
 
