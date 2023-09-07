@@ -10,6 +10,13 @@ import com.sap.engine.messaging.impl.core.queue.QueueMessage;
 @Weave
 public abstract class MessageStore {
 
+	
+	private MessageStore() {
+		if(!Logger.initialized) {
+			Logger.init();
+		}
+	}
+
 	@Weave
 	public static class PutMessageInStoreOperation {
 		
