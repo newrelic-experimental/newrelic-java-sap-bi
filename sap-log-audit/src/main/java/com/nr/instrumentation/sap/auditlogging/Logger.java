@@ -11,9 +11,11 @@ import java.util.LinkedList;
 import java.util.Properties;
 import java.util.Random;
 import java.util.StringTokenizer;
+import java.util.Timer;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -33,6 +35,7 @@ import com.newrelic.agent.deps.org.apache.logging.log4j.spi.ExtendedLogger;
 import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.Config;
 import com.newrelic.api.agent.NewRelic;
+import com.sap.engine.interfaces.messaging.api.APIAccessFactory;
 import com.sap.engine.interfaces.messaging.api.Action;
 import com.sap.engine.interfaces.messaging.api.DeliverySemantics;
 import com.sap.engine.interfaces.messaging.api.Message;
@@ -51,7 +54,12 @@ import com.sap.engine.interfaces.messaging.api.event.FinalMessageStatusData;
 import com.sap.engine.interfaces.messaging.api.exception.MessageExpiredException;
 import com.sap.engine.interfaces.messaging.api.exception.MessageFormatException;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
+import com.sap.engine.interfaces.messaging.api.logger.ProcessingState;
+import com.sap.engine.interfaces.messaging.api.message.MessageAccessException;
+import com.sap.engine.interfaces.messaging.api.message.MessageData;
+import com.sap.engine.interfaces.messaging.spi.KeyFields;
 import com.sap.engine.interfaces.messaging.spi.MessagePriority;
+import com.sap.engine.interfaces.messaging.spi.MessageProperties;
 import com.sap.engine.interfaces.messaging.spi.TextPayloadImpl;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 import com.sap.engine.interfaces.messaging.spi.XMLPayloadImpl;
@@ -59,10 +67,10 @@ import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
 import com.sap.engine.interfaces.messaging.spi.transport.Transport;
 import com.sap.engine.interfaces.messaging.spi.transport.TransportBody;
 import com.sap.engine.messaging.impl.api.MessageFactoryImpl;
+import com.sap.engine.messaging.impl.api.message.MessageDataImpl;
 import com.sap.engine.messaging.impl.core.event.FinalMessageStatusDataImpl;
 import com.sap.engine.messaging.impl.core.queue.QueueMessage;
 import com.sap.engine.messaging.impl.protocol.exception.ExceptionMessage;
-import com.sap.engine.messaging.runtime.MessagingSystem;
 
 public class Logger implements Runnable, AgentConfigListener {
 
@@ -70,16 +78,17 @@ public class Logger implements Runnable, AgentConfigListener {
 	private static ExtendedLogger LOGGER;
 	private static ExtendedLogger LOGGER2;
 	private static boolean simulate = false;
-	private int count = 0;
 	private static Logger instance = null;
-	protected static final String SIMULATE = "SAP.auditlog.simulate";
+	protected static final String SIMULATE = "SAP.testing.simulate";
+	protected static final String AUDITLOGENABLED= "SAP.auditlog.enabled";
 	protected static final String AUDITLOGFILENAME = "SAP.auditlog.log_file_name";
 	protected static final String AUDITLOGROLLOVERINTERVAL = "SAP.auditlog.log_file_interval";
 	protected static final String AUDITLOGIGNORES = "SAP.auditlog.ignores";
 	protected static final String AUDITLOGROLLOVERSIZE = "SAP.auditlog.log_size_limit";
 	protected static final String AUDITLOGMAXFILES = "SAP.auditlog.log_file_count";
 	protected static HashSet<String> auditLogIgnores = new HashSet<String>();
-	protected static final String MESSAGEOGFILENAME = "SAP.messagelog.log_file_name";
+	protected static final String MESSAGELOGENABLED = "SAP.messagelog.enabled";
+	protected static final String MESSAGELOGFILENAME = "SAP.messagelog.log_file_name";
 	protected static final String MESSAGELOGROLLOVERINTERVAL = "SAP.messagelog.log_file_interval";
 	protected static final String MESSAGELOGIGNORES = "SAP.messagelog.ignores";
 	protected static final String MESSAGELOGROLLOVERSIZE = "SAP.messagelog.log_size_limit";
@@ -93,6 +102,15 @@ public class Logger implements Runnable, AgentConfigListener {
 	private static final Random random = new Random();
 	private static LoggerContext ctx = null;
 	private static final String[] protocols = new String[] {"MML","RNIF","RNIF11","XI","CIDX"};
+	public static ThreadLocal<Boolean> LOGGED = new ThreadLocal<Boolean>() {
+
+		@Override
+		protected Boolean initialValue() {
+			return Boolean.FALSE;
+		}
+
+
+	};
 
 	static {
 		instance= new Logger();
@@ -279,20 +297,49 @@ public class Logger implements Runnable, AgentConfigListener {
 		initialized = true;
 	}
 
-	public static void log(Message message, MessageStatus status, String errorCode) {
+	public static void log(Message message, MessageStatus status, String errorCode, String connName) {
+		if(!LoggingConfig.messageConfig.isEnabled()) return;
+
 		MessageKey msgKey = message.getMessageKey();
 		if(msgKey != null) {
 			String msgId = msgKey.getMessageId();
 			String msgDir = msgKey.getDirection().toString();
 
 			if (msgId != null && msgDir != null) {
-				//				String logMsg = "Message Id: " + msgId + ",Message Direction: " + msgDir + ",Message Status: " + status + ",Error Code: " + errorCode;
-				String logMsg = getLogMsg(message, status, errorCode)  + ", Logging Type: Message";
+
+				String logMsg = getLogMsg(message, status, errorCode, null) + ",Logging Type: Message";
 				LOGGER2.log(Level.INFO, logMsg);
 			}
 		}
 
 	}
+
+	public static void log(Message message, ProcessingState state) {
+		if(!LoggingConfig.messageConfig.isEnabled()) return;
+		if(message != null) {
+			String logMsg = getLogMsg(message, null, null, null) + ",";
+			LOGGER2.log(Level.INFO, logMsg + ",ProcessingState: "+getProcessingState(state));
+		}
+
+	}
+
+	private static String getProcessingState(ProcessingState state) {
+		if(state == ProcessingState.PROCESSED) {
+			return "PROCESSED";
+		}
+		if(state == ProcessingState.PROCESSING) {
+			return "PROCESSING";
+		}
+		if(state == ProcessingState.RECORDED) {
+			return "PROCESSED";
+		}
+		if(state == ProcessingState.ERROR) {
+			return "RECORDED";
+		}
+
+		return "UNKNOWN";
+	}
+
 
 	private static String getLogMsg(Message message) {
 		MessageCollectionConfig config = MessageCollectionConfig.getInstance();
@@ -819,6 +866,322 @@ public class Logger implements Runnable, AgentConfigListener {
 		return result;
 	}
 
+
+	private static String getLogMsg(MessageData message) {
+		if(message == null) {
+			return null;
+		}
+		MessageCollectionConfig config = MessageCollectionConfig.getInstance();
+		StringBuffer sb = new StringBuffer();
+
+		if(config.isMessageid()) {
+			String msgId = message.getMessageID();
+			if (msgId != null && !msgId.isEmpty()) {
+				sb.append("Message Id: ");
+				sb.append(message.getMessageID());
+				sb.append(',');
+			}	
+		}
+
+		if(config.isActionAll()) {
+			Action action = message.getAction();
+			if (action != null) {
+				String name = action.getName();
+				String type = action.getType();
+
+				if(name != null) {
+					sb.append("Action Name: ");
+					sb.append(name);
+					sb.append(',');
+				}
+				if(type != null) {
+					sb.append("Action Type: ");
+					sb.append(type);
+					sb.append(',');
+				}
+			}
+		} else {
+			Action action = message.getAction();
+			boolean actionName = config.isAction_name();
+			boolean actionType = config.isAction_type();
+			if(actionName || actionType) {
+				String name = action.getName();
+				String type = action.getType();
+
+				if(actionName && name != null) {
+					sb.append("Action Name: ");
+					sb.append(name);
+					sb.append(',');
+				}
+				if(actionType && type != null) {
+					sb.append("Action Type: ");
+					sb.append(type);
+					sb.append(',');
+				}
+			}
+		}
+
+		if(config.isDeliverySemantics()) {
+			DeliverySemantics ds = message.getDeliverySemantics();
+			if (ds != null) {
+				sb.append("DeliverySemantics: ");
+				sb.append(ds.toString());
+				sb.append(',');
+			}	
+		}
+
+		if(config.isFromparty_all()) {
+			Party fromParty = message.getFromParty();
+			if(fromParty != null) {
+				String name = fromParty.getName();
+				if(name != null) {
+					sb.append("FromPartyName: ");
+					sb.append(name);
+					sb.append(',');
+				}
+				String type = fromParty.getType();
+				if(type != null) {
+					sb.append("FromPartyType: ");
+					sb.append(type);
+					sb.append(',');
+				}
+			}
+		} else {
+			Party fromParty = message.getFromParty();
+			if(fromParty != null) {
+				boolean partyName = config.isFromparty_name();
+				boolean partyType = config.isFromparty_type();
+				if(partyName || partyType) {
+					if(partyName) {
+						String name = fromParty.getName();
+						if(name != null) {
+							sb.append("FromPartyName: ");
+							sb.append(name);
+							sb.append(',');
+						}
+					}
+					if(partyType) {
+						String type = fromParty.getType();
+						if(type != null) {
+							sb.append("FromPartyType: ");
+							sb.append(type);
+							sb.append(',');
+						}
+					}
+				}
+			}
+		}
+
+		if(config.isFromservice_all()) {
+			Service fromService = message.getFromService();
+			if(fromService != null) {
+				String name = fromService.getName();
+				if(name != null) {
+					sb.append("FromServiceName: ");
+					sb.append(name);
+					sb.append(',');
+				}
+				String type = fromService.getType();
+				if(type != null) {
+					sb.append("FromServiceType: ");
+					sb.append(type);
+					sb.append(',');
+				}
+			}
+		} else {
+			Service fromService = message.getFromService();
+			if(fromService != null) {
+				boolean serviceName = config.isFromservice_name();
+				boolean serviceType = config.isFromservice_type();
+				if(serviceName || serviceType) {
+					if(serviceName) {
+						String name = fromService.getName();
+						if(name != null) {
+							sb.append("FromServiceName: ");
+							sb.append(name);
+							sb.append(',');
+						}
+					}
+					if(serviceType) {
+						String type = fromService.getType();
+						if(type != null) {
+							sb.append("FromServiceType: ");
+							sb.append(type);
+							sb.append(',');
+						}
+					}
+				}
+			}
+		}
+
+		if(config.isMessageclass()) {
+			MessageClass mClass = message.getMessageClass();
+			if (mClass != null) {
+				sb.append("MessageClass: ");
+				sb.append(mClass.toString());
+				sb.append(',');
+			}				
+		}
+
+		if(config.isMessagekey_all()) {
+			MessageKey messageKey = message.getMessageKey();
+			if(messageKey != null) {
+				String messageId = messageKey.getMessageId();
+				if(messageId != null) {
+					sb.append("MessageKey-MessageId: ");
+					sb.append(messageId);
+					sb.append(',');
+				}
+				MessageDirection dir = messageKey.getDirection();
+				if(dir != null) {
+					sb.append("MessageKey-Direction: ");
+					sb.append(dir);
+					sb.append(',');
+				}
+			}
+		} else {
+			MessageKey messageKey = message.getMessageKey();
+			if(messageKey != null) {
+				boolean msgId = config.isMessagekey_messageid();
+				boolean direction = config.isMessagekey_direction();
+				if(msgId || direction) {
+					if(msgId) {
+						String messageId = messageKey.getMessageId();
+						if(messageId != null) {
+							sb.append("MessageKey-MessageId: ");
+							sb.append(messageId);
+							sb.append(',');
+						}
+					}
+					if(direction) {
+						MessageDirection dir = messageKey.getDirection();
+						if(dir != null) {
+							sb.append("MessageKey-Direction: ");
+							sb.append(dir);
+							sb.append(',');
+						}
+					}
+				}
+			}
+		}
+
+		if(config.isProtocol()) {
+			String protocol = message.getProtocol();
+			if (protocol != null) {
+				sb.append("Protocol: ");
+				sb.append(protocol);
+				sb.append(',');
+			}				
+		}
+
+		if(config.isSerializationcontext()) {
+			String serialCtx = message.getSerializationContext();
+			if (serialCtx != null) {
+				sb.append("SerializationContext: ");
+				sb.append(serialCtx);
+				sb.append(',');
+			}				
+		}
+
+		if(config.isToparty_all()) {
+			Party toParty = message.getToParty();
+			if(toParty != null) {
+				String name = toParty.getName();
+				if(name != null) {
+					sb.append("ToPartyName: ");
+					sb.append(name);
+					sb.append(',');
+				}
+				String type = toParty.getType();
+				if(type != null) {
+					sb.append("ToPartyType: ");
+					sb.append(type);
+					sb.append(',');
+				}
+			}
+		} else {
+			Party toParty = message.getToParty();
+			if(toParty != null) {
+				boolean partyName = config.isToparty_name();
+				boolean partyType = config.isToparty_type();
+				if(partyName || partyType) {
+					if(partyName) {
+						String name = toParty.getName();
+						if(name != null) {
+							sb.append("ToPartyName: ");
+							sb.append(name);
+							sb.append(',');
+						}
+					}
+					if(partyType) {
+						String type = toParty.getType();
+						if(type != null) {
+							sb.append("ToPartyType: ");
+							sb.append(type);
+							sb.append(',');
+						}
+					}
+				}
+			}
+		}
+
+		if(config.isToservice_all()) {
+			Service toService = message.getToService();
+			if(toService != null) {
+				String name = toService.getName();
+				if(name != null) {
+					sb.append("ToServiceName: ");
+					sb.append(name);
+					sb.append(',');
+				}
+				String type = toService.getType();
+				if(type != null) {
+					sb.append("ToServiceType: ");
+					sb.append(type);
+					sb.append(',');
+				}
+			}
+		} else {
+			Service toService = message.getToService();
+			if(toService != null) {
+				boolean serviceName = config.isToservice_name();
+				boolean serviceType = config.isToservice_type();
+				if(serviceName || serviceType) {
+					if(serviceName) {
+						String name = toService.getName();
+						if(name != null) {
+							sb.append("ToServiceName: ");
+							sb.append(name);
+							sb.append(',');
+						}
+					}
+					if(serviceType) {
+						String type = toService.getType();
+						if(type != null) {
+							sb.append("ToServiceType: ");
+							sb.append(type);
+							sb.append(',');
+						}
+					}
+				}
+			}
+		}
+
+		if(message instanceof TransportableMessage) {
+			String tResult = getLogMsg((TransportableMessage)message);
+			if(tResult != null && !tResult.isEmpty()) {
+				sb.append(tResult);
+			}
+		}
+
+		String result = sb.toString();
+		if(result != null && result.endsWith(",")) {
+			result = result.substring(0, result.length()-1);
+		}
+
+		return result;
+	}
+
 	private static String getLogMsg(TransportableMessage message) {
 		if(message == null) return null;
 
@@ -936,7 +1299,7 @@ public class Logger implements Runnable, AgentConfigListener {
 		return result.isEmpty() ? null : result;
 	}
 
-	private static String getLogMsg(Message message, MessageStatus status, String errorcode) {
+	private static String getLogMsg(Message message, MessageStatus status, String errorcode, String connName) {
 
 		StringBuffer sb = new StringBuffer();
 
@@ -960,6 +1323,10 @@ public class Logger implements Runnable, AgentConfigListener {
 			}	
 		}
 
+		if(connName != null && !connName.isEmpty()) {
+			sb.append("Connection Name: ");
+			sb.append(connName);
+		}
 
 		String result = sb.toString();
 		if(result != null && result.endsWith(",")) {
@@ -969,10 +1336,41 @@ public class Logger implements Runnable, AgentConfigListener {
 		return result;
 	}
 
-	private static String getLogMsg(MessageKey messageKey, FinalMessageStatusData data, Integer timesFailed) {
+
+
+	private static String getLogMsg(MessageKey messageKey, FinalMessageStatusData data, Integer timesFailed, boolean simulated) {
 		MessageCollectionConfig config = MessageCollectionConfig.getInstance();
 
 		StringBuffer sb = new StringBuffer();
+
+		MessageData msgData = null;
+
+		if(!simulated) {
+			try {
+				msgData = APIAccessFactory.getAPIAccess().getMessageAccess().getMessageData(messageKey);
+			} catch (MessageAccessException e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINEST, e, "Error while getting message data");
+			} catch (MessagingException e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINEST, e, "Error while getting message data");
+			} catch(Exception e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINEST, e, "Error while getting message data");
+			}
+		}
+		if (msgData == null) {
+			if(simulated) {
+				MessagePriority priority = MessagePriority.ABSTRACT_NORMAL;
+				msgData = createMessageData(messageKey,data.getMessageStatus() , "XI", "MyConnection", 0, new Long(System.currentTimeMillis()), new Long(System.currentTimeMillis()+10000L), null, null, priority, 15000, MessageClass.APPLICATION_MESSAGE);
+				if(msgData != null) {
+					sb.append(getLogMsg(msgData));
+					sb.append(',');
+				}
+			}
+		}
+
+		if (msgData != null) {
+			sb.append(getLogMsg(msgData));
+			sb.append(',');
+		}
 
 		MessageStatus status = data.getMessageStatus();
 		if(MessageStatusConfig.isEnabled()) {
@@ -1042,12 +1440,28 @@ public class Logger implements Runnable, AgentConfigListener {
 			sb.append(',');
 		}
 
+		sb.append(", Logging Type: FinalMessageStatusData");
+
 		String result = sb.toString();
 		if(result != null && result.endsWith(",")) {
 			result = result.substring(0, result.length()-1);
 		}
 
 		return result;
+	}
+
+	private static MessageData createMessageData(MessageKey msgKey, MessageStatus status, String protocol, String connName, int timesFailed, Long delvTime, Long schedTime, String errorCat, String errorCode, MessagePriority priority, int msgSize, MessageClass msgClass) {
+
+		MessageData data = null;
+		MessageProperties msgProps = new MessageProperties();
+		msgProps.messageKey = msgKey;
+		KeyFields fields = new KeyFields(new Party("FromParty1"), new Party("ToParty"), new Service("FromService"), new Service("ToService"), new Action("Action1"));
+		msgProps.keyFields = fields;
+		
+		MessageType msgType = MessageType.RECEIVE;
+		data = new MessageDataImpl(msgProps, msgType , status, protocol, connName, 1, false, timesFailed, delvTime, schedTime, errorCat, errorCode, priority, msgSize, msgClass);
+
+		return data;
 	}
 
 	private static String getLogMsg(MessageKey msgKey, QueueMessage msg) {
@@ -1197,6 +1611,7 @@ public class Logger implements Runnable, AgentConfigListener {
 	}
 
 	public static void log(MessageKey msgKey, QueueMessage msg) {
+		if(!LoggingConfig.messageConfig.isEnabled()) return;
 		if(msgKey != null) {
 			String msgId = msgKey.getMessageId();
 			String msgDir = msgKey.getDirection().toString();
@@ -1215,28 +1630,21 @@ public class Logger implements Runnable, AgentConfigListener {
 
 
 
-	public static void log(MessageKey msgKey, FinalMessageStatusData data, Integer timesFailed) {
+	public static void log(MessageKey msgKey, FinalMessageStatusData data, Integer timesFailed, boolean simulated) {
+		if(!LoggingConfig.messageConfig.isEnabled()) return;
 		if(msgKey != null) {
 			String msgId = msgKey.getMessageId();
 			String msgDir = msgKey.getDirection().toString();
 
 			if (msgId != null && msgDir != null) {
-				//				MessageStatus status = data.getMessageStatus();
-				//				String failed;
-				//				if(timesFailed != null) {
-				//					failed = timesFailed.toString();
-				//				} else {
-				//					failed = "0";
-				//				}
-
-				//				String logMsg = "Message Id: " + msgId + ",Message Direction: " + msgDir + ",Message Status: " + status + ",Failed: "+failed;
-				String logMsg = getLogMsg(msgKey, data, timesFailed) + ", Logging Type: FinalMessageStatusData";
+				String logMsg = getLogMsg(msgKey, data, timesFailed, simulated);
 				LOGGER2.log(Level.INFO, logMsg);
 			}
 		}
 	}
 
 	public static void log(LinkedList<AuditLogEntry> list) {
+		if(!LoggingConfig.auditConfig.isEnabled()) return;
 		Iterator<AuditLogEntry> iterator = list.iterator();
 		while(iterator.hasNext()) {
 			AuditLogEntry entry = iterator.next();
@@ -1250,6 +1658,7 @@ public class Logger implements Runnable, AgentConfigListener {
 	}
 
 	public static void log(AuditLogEntry[] entries) {
+		if(!LoggingConfig.auditConfig.isEnabled()) return;
 		for(AuditLogEntry entry : entries) {
 			MessageKey msgKey = entry.getMsgKey();
 			AuditLogStatus status = entry.getStatus();
@@ -1271,12 +1680,13 @@ public class Logger implements Runnable, AgentConfigListener {
 	}
 
 	public static void log(MessageKey msgKey, AuditLogStatus status, String ts,String origTextKey, String... params) {
+		if(!LoggingConfig.auditConfig.isEnabled()) return;
 		String textKey = convert(origTextKey);
 		int size = 0;
 		if (params != null) {
 			size = params.length;
 		} else {
-			//			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINEST, "LogAudit params is null");
+			size = random.nextInt(20000);
 		}
 
 		String auditStatus;
@@ -1328,12 +1738,13 @@ public class Logger implements Runnable, AgentConfigListener {
 	}
 
 	public static void log(MessageKey msgKey, AuditLogStatus status, String origTextKey, Object... params) {
+		if(!LoggingConfig.auditConfig.isEnabled()) return;
 		String textKey = convert(origTextKey);
 		int size = 0;
 		if (params != null) {
 			size = params.length;
 		} else {
-			//			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINEST, "LogAudit params is null");
+			size = random.nextInt(20000);
 		}
 
 		String auditStatus;
@@ -1385,12 +1796,13 @@ public class Logger implements Runnable, AgentConfigListener {
 	}
 
 	public static void log(AuditLogStatus status, String origTextKey, Object... params) {
+		if(!LoggingConfig.auditConfig.isEnabled()) return;
 		String textKey = convert(origTextKey);
 		int size = 0;
 		if (params != null) {
 			size = params.length;
 		} else {
-			//			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINEST, "LogAudit params is null");
+			size = random.nextInt(20000);
 		}
 
 		String auditStatus;
@@ -1442,161 +1854,15 @@ public class Logger implements Runnable, AgentConfigListener {
 	}
 
 	public void run() {
-		long startTime = System.nanoTime();
-		NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Call to simulate audit and messages to logs, count: {0}",count);
-		Timestamp ts = new Timestamp(System.currentTimeMillis());
-		NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Start");
-		AuditLogStatus status;
-		String textKey;
-		UUID uuid = UUID.randomUUID();
-		MessageKey msgKey = new MessageKey(uuid.toString(), count % 2 == 0 ? MessageDirection.INBOUND : MessageDirection.OUTBOUND);
-		int mod = count % 3;
-		switch(mod) {
-		case 0:
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulate Success audit to logs");
-			NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Audit/Sucess");
-			textKey = "RESTIN_READ_XML";
-			status = AuditLogStatus.SUCCESS;
-			log(msgKey, status, ts.toString(), textKey);
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulated Success audit to logs");
-			break;
-		case 1:
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulate NA audit to logs");
-			NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Audit/NotAvailable");
-			textKey = "MPA_CHANNEL_ERROR";
-			status = AuditLogStatus.WARNING;
-			log(msgKey, status, ts.toString(), textKey, "Not available");
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulated NA audit to logs");
-			break;
-		case 2:
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulate MappingError audit to logs");
-			NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Audit/MappingError");
-			textKey = "MAPPING_ERROR";
-			status = AuditLogStatus.ERROR;
-			log(msgKey, status, ts.toString(), textKey, "MyMapping","Could not find mapping");
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulated MappingError audit to logs");
-			break;
+		Simulate simulate = new Simulate();
+		Timer timer = new Timer();
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		Future<?> f = executor.submit(simulate);
+		SimulateTimerTask task = new SimulateTimerTask(f, timer);
 
-		}
-		StringBuffer sb = new StringBuffer();
-		MessageType[] msgTypes = MessageType.getMessageTypes();
-		sb = new StringBuffer();
-		for(MessageType type : msgTypes) {
-			sb.append(type.toString());
-			sb.append(',');
-		}
-		NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "List of message types: {0}", sb.toString());
-		int len = protocols.length;
+		timer.schedule(task, 1000L);
 
-		switch(mod) {
-		case 0:
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulate QueueMessage to message logs");
-			TransportableMessage msg = null;
-			int index1 = random.nextInt(len);
-			while(index1 == 5) {
-				index1 = random.nextInt(len);
-			}
-
-			MessageFactoryImpl msgFactory1 = new MessageFactoryImpl(protocols[index1]);
-			try {
-				Message message = msgFactory1.createMessage(new Party("FromParty1","PartyType1"), new Party("ToParty1","PartyType2"), new Service("FromService","ServiceType1"), new Service("ToService","ServiceType2"), new Action("Action1","ActionType1"));
-				if(message != null) {
-					if(message instanceof TransportableMessage) {
-						msg = (TransportableMessage)message;
-						message.setCorrelationId("CorrelationID_"+count);
-						message.setDescription("Some Message "+count);
-						String sequenceid = "Sequenceid_" + count;
-						message.setSequenceId(sequenceid);
-						TextPayloadImpl payload = new TextPayloadImpl();
-						try {
-							payload.setText("Random Text");
-						} catch (IOException e) {
-						}
-						payload.setName("TextPayload"+count);
-						payload.setContentType("Text");
-						message.setMainPayload(payload);
-						int j = random.nextInt(3);
-						DeliverySemantics ds = null;
-						switch(j) {
-						case 0:
-							ds = DeliverySemantics.BestEffort;
-							break;
-						case 1:
-							ds = DeliverySemantics.ExactlyOnce;
-							break;
-						default:
-							ds = DeliverySemantics.ExactlyOnceInOrder;
-						}
-						message.setDeliverySemantics(ds);
-
-					}
-				}
-			} catch (MessagingException e) {
-			}
-
-			if(msg != null) {
-				int index = random.nextInt(msgTypes.length);
-				QueueMessage qMessage = new QueueMessage(msg, msgTypes[index], "MyConnection");
-				MessageKey msgKey1 = msg.getMessageKey();
-				log(msgKey1, qMessage);
-				NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Message/QueueMessage");
-			}
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulated QueueMessage to message logs");
-			break;
-		case 1:
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulate Message to message logs");
-			try {
-				int index = random.nextInt(len);
-				String protocol = protocols[index];
-				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Creating Message for protocol: {0}",protocol);
-				Message message = getMessageForProtocol(protocol, count);
-				
-
-				if(message != null) {
-					MessageStatus[] statuses = MessageStatus.getMessageStatusList();
-					int index2 = random.nextInt(statuses.length);
-					log(message,statuses[index2],"ErrorCode1");
-
-					NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Message/Message");
-				}
-				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulated Message to message {0} to logs", message);
-			} catch (MessagingException e) {
-				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Error simulating Message to message logs");
-			}
-			break;
-		case 2:
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulate FinalMessageStatusDataImpl to message logs");
-			TransportableMessage msg2 = null;
-			for(int i=0;i<len && msg2 == null;i++) {
-				MessageFactoryImpl msgFactory = new MessageFactoryImpl(protocols[i]);
-				try {
-					Message message = msgFactory.createMessage(new Party("FromParty"), new Party("ToParty"), new Service("FromService"), new Service("ToService"), new Action("Action1"));
-					if(message != null) {
-						if(message instanceof TransportableMessage) {
-							msg2 = (TransportableMessage)message;
-						}
-					}
-				} catch (MessagingException e) {
-					NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Error simulating FinalMessageStatusDataImpl to message logs");
-				}
-
-			}
-			if(msg2 != null) {
-				int index = random.nextInt(msgTypes.length);
-				QueueMessage qMessage = new QueueMessage(msg2, msgTypes[index], "MyConnection");
-				FinalMessageStatusDataImpl data = new FinalMessageStatusDataImpl(qMessage);
-				Integer failed = new Integer(random.nextInt(4));
-				log(data.getMessageKey(),data, failed);
-				NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Message/FinalMessageStatus");
-			}
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulated FinalMessageStatusDataImpl to message logs");
-		default:
-
-		}
-		count++;
-		NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Finished");
-		long endTime = System.nanoTime();
-		NewRelic.recordResponseTimeMetric("Supportability/SAP/Audit/runtime", (endTime-startTime)/1000000);
+		executor.shutdownNow();
 	}
 
 	@Override
@@ -1604,6 +1870,7 @@ public class Logger implements Runnable, AgentConfigListener {
 
 		boolean reinitialize = LoggingConfig.reInitialize(agentConfig);
 		if(reinitialize) {
+			initialized = false;
 			init();
 		}
 
@@ -1663,11 +1930,21 @@ public class Logger implements Runnable, AgentConfigListener {
 			return eMessage;
 		}
 
+		boolean isXI = protocol.equalsIgnoreCase("xi");
+		boolean isMML = protocol.equalsIgnoreCase("mml");
+
 		MessageFactoryImpl msgFactory1 = new MessageFactoryImpl(protocol);
-		Message message = msgFactory1.createMessage(new Party("FromParty1","PartyType1"), new Party("ToParty1","PartyType2"), new Service("FromService","ServiceType1"), new Service("ToService","ServiceType2"), new Action("Action1","ActionType1"));
+		Message message = null;
+		if(isXI) {
+			message = msgFactory1.createMessage(new Party("FromParty1",""), new Party("ToParty1",""), new Service("FromService",""), new Service("ToService",""), new Action("Action1",""));
+		} else {
+			message = msgFactory1.createMessage(new Party("FromParty1","PartyType1"), new Party("ToParty1","PartyType2"), new Service("FromService","ServiceType1"), new Service("ToService","ServiceType2"), new Action("Action1","ActionType1"));
+		}
 		message.setCorrelationId("CorrelationID_"+count);
-		message.setDescription("Some Message "+count);
-		String sequenceid = "Sequenceid_" + count;
+		if(!isXI) {
+			message.setDescription("Some Message "+count);
+		}
+		String sequenceid = "SEQUENCEID_" + count;
 		message.setSequenceId(sequenceid);
 		int j = random.nextInt(3);
 		DeliverySemantics ds = null;
@@ -1688,13 +1965,14 @@ public class Logger implements Runnable, AgentConfigListener {
 			}
 			message.setDeliverySemantics(ds);
 		}
-		if(protocol.equalsIgnoreCase("mml")) {
+		if(isMML) {
 			XMLPayloadImpl xmlPayload = new XMLPayloadImpl();
 			xmlPayload.setName("MyXmlPayload");
 			xmlPayload.setContentType("xmltext");
 			try {
 				xmlPayload.setText("<text><string>ABC</string></text>");
 			} catch (IOException e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINER, e, "Error creating XMLPayload");
 			}
 			xmlPayload.setVersion("V2");
 			message.setDocument(xmlPayload);
@@ -1703,15 +1981,147 @@ public class Logger implements Runnable, AgentConfigListener {
 			try {
 				payload.setText("Random Text");
 			} catch (IOException e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINER, e, "Error creating TextPayload");
 			}
 			payload.setName("TextPayload"+count);
 			payload.setContentType("Text");
 			message.setMainPayload(payload);
-			
+
+		}
+
+		return message;
+	}
+
+	private static class Simulate implements Runnable {
+
+		private static int count = 0;
+
+		@Override
+		public void run() {
+			try {
+				long startTime = System.nanoTime();
+				Timestamp ts = new Timestamp(System.currentTimeMillis());
+				NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Start");
+				AuditLogStatus status;
+				String textKey;
+				UUID uuid = UUID.randomUUID();
+				MessageKey msgKey = new MessageKey(uuid.toString(), count % 2 == 0 ? MessageDirection.INBOUND : MessageDirection.OUTBOUND);
+				int mod = count % 3;
+				switch(mod) {
+				case 0:
+					NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Audit/Sucess");
+					textKey = "RESTIN_READ_XML";
+					status = AuditLogStatus.SUCCESS;
+					log(msgKey, status, ts.toString(), textKey);
+					break;
+				case 1:
+					NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Audit/NotAvailable");
+					textKey = "MPA_CHANNEL_ERROR";
+					status = AuditLogStatus.WARNING;
+					log(msgKey, status, ts.toString(), textKey, "Not available");
+					break;
+				case 2:
+					NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Audit/MappingError");
+					textKey = "MAPPING_ERROR";
+					status = AuditLogStatus.ERROR;
+					log(msgKey, status, ts.toString(), textKey, "MyMapping","Could not find mapping");
+					break;
+
+				}
+				MessageType[] msgTypes = MessageType.getMessageTypes();
+				int len = protocols.length;
+
+				switch(mod) {
+				case 0:
+					TransportableMessage msg = null;
+					int index1 = random.nextInt(len);
+					while(index1 == 5) {
+						index1 = random.nextInt(len);
+					}
+
+					try {
+						Message message = getMessageForProtocol(protocols[index1], index1);
+						if(message instanceof TransportableMessage) {
+							msg = (TransportableMessage)message;
+						}
+					} catch (MessagingException e) {
+						NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Error simulating QueueMessage to message logs");
+						count++;
+						return;
+					}
+
+					if(msg != null) {
+						int index = random.nextInt(msgTypes.length);
+						QueueMessage qMessage = new QueueMessage(msg, msgTypes[index], "MyConnection");
+						MessageKey msgKey1 = msg.getMessageKey();
+						log(msgKey1, qMessage);
+						NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Message/QueueMessage");
+					}
+					break;
+				case 1:
+					try {
+						int index = random.nextInt(len);
+						String protocol = protocols[index];
+						Message message = getMessageForProtocol(protocol, count);
+
+						if(message != null) {
+							MessageStatus[] statuses = MessageStatus.getMessageStatusList();
+							int index2 = random.nextInt(statuses.length);
+							log(message,statuses[index2],"ErrorCode1", null);
+
+							NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Message/Message");
+						}
+					} catch (MessagingException e) {
+						NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Error simulating Message to message logs");
+						count++;
+						return;
+					}
+					break;
+				case 2:
+
+					TransportableMessage msg2 = null;
+					int index = random.nextInt(len);
+					String protocol = "XI"; //protocols[index];
+					try {
+						Message message = getMessageForProtocol(protocol, count);
+						if(message != null) {
+							if(message instanceof TransportableMessage) {
+								msg2 = (TransportableMessage)message;
+							} else {
+								count++;
+								return;
+							}
+						} else {
+							count++;
+							return;
+						}
+					} catch (MessagingException e) {
+						NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Error simulating FinalMessageStatusDataImpl to message logs");
+						count++;
+						return;
+					}
+
+					if(msg2 != null) {
+						index = random.nextInt(msgTypes.length);
+						QueueMessage qMessage = new QueueMessage(msg2, msgTypes[index], "MyConnection");
+						FinalMessageStatusDataImpl data = new FinalMessageStatusDataImpl(qMessage);
+						Integer failed = new Integer(random.nextInt(4));
+						log(data.getMessageKey(),data, failed, true);
+						NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Message/FinalMessageStatus");
+					}
+				default:
+
+				}
+				count++;
+				NewRelic.incrementCounter("Supportability/SAP/Audit/Simulate/Finished");
+				long endTime = System.nanoTime();
+				NewRelic.recordResponseTimeMetric("Supportability/SAP/Audit/runtime", (endTime-startTime)/1000000);
+			} catch (Exception e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Error occurred with trying to simulate messages");
+			}
 		}
 
 
-		return message;
 	}
 
 	private static final String props = "#Tue Jul 14 10:45:20 CEST 2015\n" + 

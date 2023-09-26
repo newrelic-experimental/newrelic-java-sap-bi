@@ -7,7 +7,7 @@ import static com.nr.instrumentation.sap.auditlogging.Logger.AUDITLOGROLLOVERSIZ
 import static com.nr.instrumentation.sap.auditlogging.Logger.MESSAGELOGMAXFILES;
 import static com.nr.instrumentation.sap.auditlogging.Logger.MESSAGELOGROLLOVERINTERVAL;
 import static com.nr.instrumentation.sap.auditlogging.Logger.MESSAGELOGROLLOVERSIZE;
-import static com.nr.instrumentation.sap.auditlogging.Logger.MESSAGEOGFILENAME;
+import static com.nr.instrumentation.sap.auditlogging.Logger.MESSAGELOGFILENAME;
 
 import java.util.logging.Level;
 
@@ -43,7 +43,7 @@ public class LoggingConfig {
 		newAuditConfig.setRolloverInterval(rolloverMinutes);
 		
 		obj = agentConfig.getValue(AUDITLOGROLLOVERSIZE);
-		String rolloverSize = "10k";
+		String rolloverSize = "100k";
 		if(obj != null) {
 			rolloverSize = (String)obj; 
 		}
@@ -70,7 +70,7 @@ public class LoggingConfig {
 	
 	private static MessageConfig getMessageConfig(Config agentConfig) {
 		MessageConfig newMessageConfig = new MessageConfig();
-		Object obj = agentConfig.getValue(MESSAGEOGFILENAME);
+		Object obj = agentConfig.getValue(MESSAGELOGFILENAME);
 		String messageFileName = null;
 		if(obj != null) {
 			messageFileName = (String)obj;
@@ -87,7 +87,7 @@ public class LoggingConfig {
 		newMessageConfig.setMaxLogFiles(messageLogMaxFiles);
 		
 		obj = agentConfig.getValue(MESSAGELOGROLLOVERSIZE);
-		String rolloverSize = "10k";
+		String rolloverSize = "100k";
 		if(obj != null) {
 			rolloverSize = (String)obj; 
 		} 

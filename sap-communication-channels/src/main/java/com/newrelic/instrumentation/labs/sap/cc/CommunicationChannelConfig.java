@@ -1,30 +1,30 @@
-package com.nr.instrumentation.sap.auditlogging;
+package com.newrelic.instrumentation.labs.sap.cc;
 
 import java.io.File;
 import java.util.HashMap;
 
 import com.newrelic.agent.config.ConfigFileHelper;
 
-public class MessageConfig {
+public class CommunicationChannelConfig {
 
-	private String messageFile = null;
+	private String channelLog = null;
 	private int maxLogFiles = 3;
 	private String rolloverSize = "100K";
 	private int rolloverMinutes = 0;
 	private boolean enabled = true;
-	
-	public MessageConfig() {
+
+	public CommunicationChannelConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
-		File message_file = new File(newRelicDir, Logger.DEFAULT_MESSAGE_FILE_NAME);
-		messageFile = message_file.getAbsolutePath();
+		File message_file = new File(newRelicDir, CommunicationChannelMonitor.log_file_name);
+		channelLog = message_file.getAbsolutePath();		
 	}
 
-	public String getMessageFile() {
-		return messageFile;
+	public String getChannelLog() {
+		return channelLog;
 	}
 
-	public void setMessageFile(String messageFile) {
-		this.messageFile = messageFile;
+	public void setChannelLog(String channelLog) {
+		this.channelLog = channelLog;
 	}
 
 	public int getMaxLogFiles() {
@@ -50,7 +50,7 @@ public class MessageConfig {
 	public void setRolloverMinutes(int rolloverMinutes) {
 		this.rolloverMinutes = rolloverMinutes;
 	}
-	
+
 	public boolean isEnabled() {
 		return enabled;
 	}
@@ -59,9 +59,20 @@ public class MessageConfig {
 		this.enabled = enabled;
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if(obj == null) return false;
+		
+		if(!(obj instanceof CommunicationChannelConfig)) return false;
+		
+		CommunicationChannelConfig newConfig = (CommunicationChannelConfig)obj;
+		
+ 		return newConfig.channelLog.equals(channelLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize) && newConfig.enabled == enabled;
+	}
+	
 	public HashMap<String, Object> getCurrentSettings() {
 		HashMap<String, Object> attributes = new HashMap<>();
-		attributes.put("MessageFileName", messageFile);
+		attributes.put("ChannelFileName", channelLog);
 		attributes.put("MaxMessageLogFiles", maxLogFiles);
 		attributes.put("RollOverSize", rolloverSize);
 		attributes.put("RollOverMinutes", rolloverMinutes);
@@ -71,17 +82,4 @@ public class MessageConfig {
 		return attributes;
 	}
 
-	@Override
-	public boolean equals(Object obj) {
-		if(obj == null) return false;
-		
-		if(!(obj instanceof MessageConfig)) {
-			return false;
-		}
-		MessageConfig newConfig = (MessageConfig)obj;
-		
-		return newConfig.enabled == enabled && newConfig.maxLogFiles == maxLogFiles && newConfig.messageFile.equals(messageFile) && newConfig.rolloverSize.equals(rolloverSize);
-	}
-	
-	
 }

@@ -42,7 +42,7 @@ public abstract class MessageStore {
 		
 		public void commit(boolean txSyncCallback) {
 			if(fmsd != null) {
-				Logger.log(messageKey, fmsd, timesFailed);
+				Logger.log(messageKey, fmsd, timesFailed, false);
 			}
 			Weaver.callOriginal();
 		}

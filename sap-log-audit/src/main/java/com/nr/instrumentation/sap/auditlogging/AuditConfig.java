@@ -10,9 +10,10 @@ public class AuditConfig {
 
 	private String auditFile = null;
 	private int rolloverInterval = 0;
-	private String rolloverSize = "10K";
+	private String rolloverSize = "100K";
 	private int maxFiles = 3;
 	private HashSet<String> ignores = new HashSet<>();
+	private boolean enabled = true;
 	
 	protected AuditConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
@@ -64,6 +65,14 @@ public class AuditConfig {
 		this.maxFiles = maxFiles;
 	}
 
+	public boolean isEnabled() {
+		return enabled;
+	}
+
+	public void setEnabled(boolean enabled) {
+		this.enabled = enabled;
+	}
+
 	@Override
 	public boolean equals(Object object) {
 		if(object == null) return false;
@@ -82,6 +91,7 @@ public class AuditConfig {
 		attributes.put("MaxAuditLogFiles", maxFiles);
 		attributes.put("RollOverSize", rolloverSize);
 		attributes.put("RollOverMinutes", rolloverInterval);
+		attributes.put("Enabled", enabled);
 		
 		return attributes;
 	}
