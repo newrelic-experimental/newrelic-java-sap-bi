@@ -1,0 +1,6 @@
+com.sap.aii.adapter.rest_api.jar
+com.sap.aii.adapter.rest.ejb.jar
+com.sap.aii.adapter.xi.svc_api.jar
+com.sap.aii.af.cpa.svc.api.jar
+com.sap.aii.af.ms.ifc_api.jar
+com.sap.aii.af.sdk.jar

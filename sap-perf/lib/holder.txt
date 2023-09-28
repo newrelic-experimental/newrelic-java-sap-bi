@@ -1,0 +1,14 @@
+com_sap.aii.profile.ear.jar
+com_sap.xpi.mdt.afbean.jar
+com.sap.aii.adapter.xi.svc_api.jar
+com.sap.aii.af.ms.ifc_api.jar
+com.sap.aii.af.sdk.jar
+com.sap.aii.af.svc_api.jar
+com.sap.aii.utilxi.core.jar
+com.sap.aii.utilxi.server.jar
+com.sap.xi.mdt.itsam.lib.jar
+com.sap.xi.mdt.itsam.soa.lib.jar
+com.sap.xi.rwb.api_api.jar
+com.sap.xpi.mdt2_api.jar
+sap.com~tc~sld~lcrclient_lib.jar
+soapclient.jar
