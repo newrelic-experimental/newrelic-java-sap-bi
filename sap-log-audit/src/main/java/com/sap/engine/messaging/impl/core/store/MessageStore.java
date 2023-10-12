@@ -2,7 +2,7 @@ package com.sap.engine.messaging.impl.core.store;
 
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.auditlogging.Logger;
+import com.newrelic.instrumentation.labs.sap.auditlogging.Logger;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 import com.sap.engine.interfaces.messaging.api.event.FinalMessageStatusData;
 import com.sap.engine.messaging.impl.core.queue.QueueMessage;

@@ -8,7 +8,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.engine.EngineUtils;
+import com.newrelic.instrumentation.labs.sap.engine.EngineUtils;
 import com.sap.engine.interfaces.messaging.spi.Services;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 

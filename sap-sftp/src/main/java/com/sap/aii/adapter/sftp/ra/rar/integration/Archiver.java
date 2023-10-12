@@ -7,7 +7,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.sftp.SFTPUtils;
+import com.newrelic.instrumentation.labs.sap.sftp.SFTPUtils;
 import com.sap.engine.interfaces.messaging.api.Message;
 
 @Weave

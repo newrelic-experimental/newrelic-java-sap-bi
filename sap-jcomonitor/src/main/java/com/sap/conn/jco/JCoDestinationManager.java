@@ -5,7 +5,7 @@ import java.util.List;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.WeaveAllConstructors;
-import com.nr.instrumentation.sap.jcomonitor.StatsCollector;
+import com.newrelic.instrumentation.labs.sap.jcomonitor.StatsCollector;
 import com.sap.conn.jco.monitor.JCoDestinationMonitor;
 
 @Weave(type=MatchType.BaseClass)

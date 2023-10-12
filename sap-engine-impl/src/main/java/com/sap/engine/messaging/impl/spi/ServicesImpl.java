@@ -6,7 +6,7 @@ import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.engineimpl.EngineUtils;
+import com.newrelic.instrumentation.labs.sap.engineimpl.EngineUtils;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;

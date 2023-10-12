@@ -4,7 +4,7 @@ import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Token;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.adaptermonitoring.NRRunnable;
+import com.newrelic.instrumentation.labs.sap.adaptermonitoring.NRRunnable;
 
 @Weave
 public abstract class J2EEResource {

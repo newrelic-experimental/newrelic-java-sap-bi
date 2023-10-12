@@ -9,7 +9,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.as2.AS2Utils;
+import com.newrelic.instrumentation.labs.sap.as2.AS2Utils;
 import com.sap.aii.adapter.as2.ra.api.pdu.AS2Message;
 import com.sap.aii.adapter.as2.ra.api.pdu.mdn.ReceivedMessageDispositionNotification;
 import com.sap.aii.af.service.cpa.Channel;

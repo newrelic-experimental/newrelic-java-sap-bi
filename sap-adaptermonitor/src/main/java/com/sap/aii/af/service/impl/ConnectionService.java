@@ -2,7 +2,7 @@ package com.sap.aii.af.service.impl;
 
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.WeaveAllConstructors;
-import com.nr.instrumentation.sap.adaptermonitoring.AdapterCollector;
+import com.newrelic.instrumentation.labs.sap.adaptermonitoring.AdapterCollector;
 
 /*
  * This class is instrumented in order to insure that the AdapterCollector get initialized.

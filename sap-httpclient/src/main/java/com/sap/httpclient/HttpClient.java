@@ -7,7 +7,7 @@ import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.httpclient.OutboundWrapper;
+import com.newrelic.instrumentation.labs.sap.httpclient.OutboundWrapper;
 import com.sap.httpclient.exception.URIException;
 
 @Weave

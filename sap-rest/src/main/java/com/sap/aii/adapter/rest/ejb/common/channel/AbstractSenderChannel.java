@@ -8,7 +8,7 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.rest.RESTUtils;
+import com.newrelic.instrumentation.labs.sap.rest.RESTUtils;
 import com.sap.aii.adapter.xi.ms.XIMessage;
 
 @Weave(type=MatchType.BaseClass)

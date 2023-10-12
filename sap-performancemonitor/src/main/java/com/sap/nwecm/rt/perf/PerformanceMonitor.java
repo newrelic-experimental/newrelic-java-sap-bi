@@ -5,7 +5,7 @@ import java.util.Map;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.perf.StatsCollector;
+import com.newrelic.instrumentation.labs.sap.perf.StatsCollector;
 
 @Weave
 public abstract class PerformanceMonitor {
