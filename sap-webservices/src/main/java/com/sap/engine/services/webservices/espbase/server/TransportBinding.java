@@ -8,7 +8,7 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.webservices.Utils;
+import com.newrelic.instrumentation.labs.sap.webservices.Utils;
 import com.sap.engine.interfaces.webservices.esp.Message;
 import com.sap.engine.interfaces.webservices.runtime.RuntimeProcessException;
 

@@ -1,7 +1,7 @@
 package com.sap.jms.server.dc;
 
 import com.newrelic.api.agent.weaver.Weave;
-import com.nr.instrumentation.sap.jmsmonitor.DataCollector;
+import com.newrelic.instrumentation.labs.sap.jmsmonitor.DataCollector;
 
 @Weave
 public abstract class MessageMonitoringManager implements MessageMonitoringFacade {

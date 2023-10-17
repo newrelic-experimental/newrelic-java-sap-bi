@@ -10,7 +10,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.adapters.ejb.AdaptersUtils;
+import com.newrelic.instrumentation.labs.sap.adapters.ejb.AdaptersUtils;
 import com.sap.aii.af.lib.mp.module.ModuleData;
 import com.sap.aii.af.service.cpa.CPAException;
 import com.sap.aii.af.service.cpa.CPAObjectNotFoundException;

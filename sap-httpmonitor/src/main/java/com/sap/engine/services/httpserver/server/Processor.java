@@ -2,7 +2,7 @@ package com.sap.engine.services.httpserver.server;
 
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.httpmonitor.HttpStatsCollector;
+import com.newrelic.instrumentation.labs.sap.httpmonitor.HttpStatsCollector;
 
 @Weave
 public abstract class Processor {

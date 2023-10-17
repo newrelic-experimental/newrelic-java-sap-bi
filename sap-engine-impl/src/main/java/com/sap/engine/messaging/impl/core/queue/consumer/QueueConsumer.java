@@ -9,7 +9,7 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.engineimpl.EngineUtils;
+import com.newrelic.instrumentation.labs.sap.engineimpl.EngineUtils;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
 import com.sap.engine.messaging.impl.core.queue.QueueEntry;
 import com.sap.engine.messaging.impl.core.queue.QueueMessage;

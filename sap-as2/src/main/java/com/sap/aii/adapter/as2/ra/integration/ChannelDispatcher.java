@@ -9,7 +9,7 @@ import com.newrelic.api.agent.weaver.NewField;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.WeaveAllConstructors;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.as2.AS2Utils;
+import com.newrelic.instrumentation.labs.sap.as2.AS2Utils;
 import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 

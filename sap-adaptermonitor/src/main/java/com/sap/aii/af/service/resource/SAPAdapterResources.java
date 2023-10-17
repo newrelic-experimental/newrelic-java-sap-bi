@@ -5,7 +5,7 @@ import com.newrelic.api.agent.Token;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.adaptermonitoring.NRRunnable;
+import com.newrelic.instrumentation.labs.sap.adaptermonitoring.NRRunnable;
 
 @Weave(type=MatchType.Interface)
 public abstract class SAPAdapterResources {

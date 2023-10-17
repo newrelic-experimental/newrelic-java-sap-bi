@@ -1,0 +1,10 @@
+com_sap.aii.profile.ear.jar
+com.sap.aii.af.cpa.svc.api.jar
+com.sap.aii.af.lib.mod.jar
+com.sap.aii.af.ms.ifc_api.jar
+com.sap.aii.af.sdk.jar
+com.sap.aii.af.svc_api.jar
+com.sap.aii.utilxi.core.jar
+sap.com~tc~bl~pj_jmx~api.jar
+sap.com~tc~ecm~core~perf~jar.jar
+soapclient.jar

@@ -1,0 +1,5 @@
+com.sap.aii.adapter.idoc.ejb.jar
+com.sap.aii.adapter.idoc.util.ejb.jar
+com.sap.aii.af.ms.ifc_api.jar
+sap.com~tc~bl~idoc~impl.jar
+sap.com~tc~bl~jra~RUNTIME.jar

@@ -5,7 +5,7 @@ import java.util.HashMap;
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumentation.sap.stats.MessageStats;
+import com.newrelic.instrumentation.labs.sap.stats.MessageStats;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 
 @Weave

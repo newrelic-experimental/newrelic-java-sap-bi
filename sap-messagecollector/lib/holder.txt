@@ -1,0 +1,2 @@
+com.sap.aii.af.ms.ifc_api.jar
+com.sap.aii.af.ms.svc_api.jar

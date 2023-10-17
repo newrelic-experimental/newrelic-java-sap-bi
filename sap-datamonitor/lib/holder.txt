@@ -1,0 +1,1 @@
+sap.com~tc~bl~opensql~implStandalone.jar
