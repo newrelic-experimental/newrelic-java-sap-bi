@@ -7,6 +7,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.nwecm.rt.perf.MethodSummary;
 import com.sap.nwecm.rt.perf.MethodType;
@@ -16,6 +20,17 @@ public class StatsCollector implements Runnable {
 
 	public static boolean initialized = false;
 
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		if(instanceId != null && !instanceId.isEmpty()) {
+			attributes.put("AgentInstanceId", instanceId);
+		}
+	}
+	
 	
 	private static StatsCollector instance = null;
 	public static StatsCollector getInstance() {
@@ -66,6 +81,7 @@ public class StatsCollector implements Runnable {
 		}
 		long end = System.currentTimeMillis();
 		attributes.put("Duration", end-start);
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("PerformanceMonitor", attributes);
 	}
 
@@ -86,6 +102,7 @@ public class StatsCollector implements Runnable {
 		attributes.put("TotalTime", summary.getTotalTime());
 		attributes.put("TotalTimeMs", summary.getTotalTimeMs());
 		attributes.put("MethodInfo", summary.getMethodInfo());
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("MethodSummary", attributes);
 	}
 	

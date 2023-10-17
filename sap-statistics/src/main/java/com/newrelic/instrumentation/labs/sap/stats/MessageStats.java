@@ -3,6 +3,10 @@ package com.newrelic.instrumentation.labs.sap.stats;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.Insights;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.aii.af.service.statistic.IMeasuringPoint;
@@ -11,18 +15,23 @@ import com.sap.engine.interfaces.messaging.api.MessageKey;
 
 public class MessageStats  {
 
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(HashMap<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		reportObject(attributes, "Agent-InstanceName", instanceId);
+	}
 
 	public static void reportPerformanceCollectorData(IPerformanceCollectorData data) {
 		Insights insights = NewRelic.getAgent().getInsights();
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
 		reportObject(attributes,"ActionName", data.getActionName());
-//		reportObject(attributes,"ActionType", data.getActionType());
-//		reportObject(attributes,"AllInOneObjectID", data.getAllInOneObjectID());
 		reportObject(attributes,"CreationTimestamp", data.getCreationTimestamp());
 		reportObject(attributes,"DeliverySemantics", data.getDeliverySemantics());
 		reportObject(attributes,"FromPartyName", data.getFromPartyName());
 		reportObject(attributes,"FromServiceName", data.getFromServiceName());
-//		reportObject(attributes,"IcoScenarioIdentifier", data.getIcoScenarioIdentifier());
 
 		MessageKey messageKey = data.getMessageKey();
 		if(messageKey != null) {
@@ -31,7 +40,6 @@ public class MessageStats  {
 		}
 		reportObject(attributes,"MessageSize", data.getMessageSize());
 		reportObject(attributes,"ReceiverAction", data.getReceiverActionName());
-//		reportObject(attributes,"ReceiverActionType", data.getReceiverActionType());
 		reportObject(attributes,"RefToMessageID", data.getRefToMessageID());
 		reportObject(attributes,"SentReceiveTimestamp", data.getSentReceiveTimestamp());
 		reportObject(attributes,"TransDeliveryTimestamp", data.getTransDeliveryTimestamp());
@@ -54,6 +62,7 @@ public class MessageStats  {
 			reportObject(attributes,"AverageProcessingTime", avgProcessing);
 
 		}
+		addInstanceName(attributes);
 		insights.recordCustomEvent("PerformanceCollectorData", attributes);
 	}
 

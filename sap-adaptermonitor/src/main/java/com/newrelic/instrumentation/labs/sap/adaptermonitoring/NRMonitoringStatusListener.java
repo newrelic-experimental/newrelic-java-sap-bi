@@ -30,8 +30,9 @@ public class NRMonitoringStatusListener implements MonitoringStatusListener {
 	private static HashSet<String> channel_ignores = new HashSet<String>();
 	private static HashSet<String> process_ignores = new HashSet<String>();
 
-	private static ConfigListener listener_instance = null;
 
+	private static ConfigListener listener_instance = null;
+	
 	public NRMonitoringStatusListener() {
 		if(listener_instance == null) {
 			listener_instance = new ConfigListener();
@@ -84,6 +85,7 @@ public class NRMonitoringStatusListener implements MonitoringStatusListener {
 				putValue(attributes, "MessageParam-"+count, param);
 				count++;
 			}
+			AdapterUtils.addInstanceName(attributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("ChannelStatus", attributes);
 		}
 	}
@@ -112,6 +114,7 @@ public class NRMonitoringStatusListener implements MonitoringStatusListener {
 			putValue(attributes, "Process-SenderService", context.getSenderService());
 			Channel channel = context.getChannel();
 			putValue(attributes, "Channel", channel.getChannelName());
+			AdapterUtils.addInstanceName(attributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("ProcessStatus", attributes);
 		}
 
@@ -135,6 +138,7 @@ public class NRMonitoringStatusListener implements MonitoringStatusListener {
 					putValue(attributes, "MessageParam-"+count, param);
 					count++;
 				}
+				AdapterUtils.addInstanceName(attributes);
 
 				NewRelic.getAgent().getInsights().recordCustomEvent("ChannelStatus", attributes);
 			}

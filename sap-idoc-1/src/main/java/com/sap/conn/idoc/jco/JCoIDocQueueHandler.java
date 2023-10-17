@@ -20,6 +20,7 @@ public abstract class JCoIDocQueueHandler {
 		for(IDocDocumentList idocList : var2) {
 			HashMap<String, Object> listAttributes = new HashMap<>();
 			SAPIDocsUtils.addIDocDocumentList(listAttributes, idocList);
+			SAPIDocsUtils.addInstanceName(listAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("IDOCLIST_RECV", listAttributes);
 		
 			int n = idocList.getNumDocuments();
@@ -28,6 +29,7 @@ public abstract class JCoIDocQueueHandler {
 				HashMap<String, Object> docAttributes = new HashMap<>();
 				IDocDocument doc = idocList.get(i);
 				SAPIDocsUtils.addIDocDocument(docAttributes, doc);
+				SAPIDocsUtils.addInstanceName(docAttributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);
 			}
 		}

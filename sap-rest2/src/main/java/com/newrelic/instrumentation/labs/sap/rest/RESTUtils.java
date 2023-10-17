@@ -2,6 +2,10 @@ package com.newrelic.instrumentation.labs.sap.rest;
 
 import java.util.HashMap;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.aii.adapter.xi.ms.XIMessage;
 import com.sap.engine.interfaces.messaging.api.Action;
@@ -11,6 +15,15 @@ import com.sap.engine.interfaces.messaging.api.Party;
 import com.sap.engine.interfaces.messaging.api.Service;
 
 public class RESTUtils {
+
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(HashMap<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		addValue(attributes, "Agent-InstanceName", instanceId);
+	}
 
 	public static void reportMessage(Message message, Long duration) {
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
@@ -34,7 +47,7 @@ public class RESTUtils {
 		if(message instanceof XIMessage) {
 			addXIMessage(attributes, (XIMessage)message);
 		}
-		
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("MessageProcessing", attributes);
 	}
 	

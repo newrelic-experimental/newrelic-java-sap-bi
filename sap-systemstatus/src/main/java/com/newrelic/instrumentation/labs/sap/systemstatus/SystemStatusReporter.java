@@ -5,6 +5,10 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.engine.interfaces.messaging.api.systemstatus.QueueStatus;
 import com.sap.engine.interfaces.messaging.api.systemstatus.SystemStatus;
@@ -20,6 +24,16 @@ public class SystemStatusReporter implements Runnable {
 		
 		Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(reporter, 1, 3, TimeUnit.MINUTES);
 	}
+	
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		reportValue(attributes, "Agent-InstanceName", instanceId);
+	}
+	
 
 	@Override
 	public void run() {
@@ -43,6 +57,7 @@ public class SystemStatusReporter implements Runnable {
 		reportValue(attributes,"MaxWorkerThreads", queueStatus.getMaxWorkerThreads());
 		reportValue(attributes,"QueueSize", queueStatus.getQueueSize());
 		reportValue(attributes,"ThreadPoolSize", queueStatus.getThreadPoolSize());
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("QueueStatus", attributes);
 	}
 

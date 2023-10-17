@@ -2,6 +2,10 @@ package com.newrelic.instrumentation.labs.sap.rest;
 
 import java.util.HashMap;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.aii.adapter.xi.ms.XIMessage;
 import com.sap.engine.interfaces.messaging.api.Action;
@@ -11,20 +15,26 @@ import com.sap.engine.interfaces.messaging.api.Party;
 import com.sap.engine.interfaces.messaging.api.Service;
 
 public class RESTUtils {
+	
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(HashMap<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		addValue(attributes, "Agent-InstanceName", instanceId);
+	}
 
 	public static void reportMessage(Message message, Long duration) {
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
 		addValue(attributes, "Adapter", "REST");
 		addAction(attributes, message.getAction());
 		addValue(attributes, "CorrelationId", message.getCorrelationId());
-//		addValue(attributes, "DeliverySemantics", message.getDeliverySemantics());
 		addParty(attributes, message.getFromParty(),"From");
 		addService(attributes, message.getFromService(), "From");
-//		addValue(attributes, "MessageClass", message.getMessageClass());
 		addValue(attributes, "MessageDirection", message.getMessageDirection());
 		addMessageKey(attributes, message.getMessageKey());
 		addValue(attributes, "Protocol", message.getProtocol());
-//		addValue(attributes, "RefToMessageId", message.getRefToMessageId());
 		addValue(attributes, "SequenceId", message.getSequenceId());
 		addValue(attributes, "TimeReceived", message.getTimeReceived());
 		addValue(attributes, "TimeSent", message.getTimeSent());
@@ -34,14 +44,12 @@ public class RESTUtils {
 		if(message instanceof XIMessage) {
 			addXIMessage(attributes, (XIMessage)message);
 		}
-		
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("MessageProcessing", attributes);
 	}
 	
 	public static void addXIMessage(HashMap<String, Object> attributes, XIMessage message) {
-//		addValue(attributes, "AckDestination", message.getAckDestination());
 		addValue(attributes, "EndPoint", message.getEndpoint());
-//		addValue(attributes, "ErrorCategory", message.getErrorCategory());
 		addValue(attributes, "ErrorCode", message.getErrorCode());
 		addValue(attributes, "InterefaceName", message.getInterfaceName());
 		addValue(attributes, "MessageId", message.getMessageId());
@@ -49,7 +57,6 @@ public class RESTUtils {
 		addValue(attributes, "ParentId", message.getParentId());
 		addValue(attributes, "ProcessingMode", message.getProcessingMode());
 		addValue(attributes, "Retries", message.getRetries());
-//		addValue(attributes, "ScenarioIdentifier", message.getScenarioIdentifier());
 		addValue(attributes, "SequenceNumber", message.getSequenceNumber());
 		addValue(attributes, "Stage", message.getStage());
 

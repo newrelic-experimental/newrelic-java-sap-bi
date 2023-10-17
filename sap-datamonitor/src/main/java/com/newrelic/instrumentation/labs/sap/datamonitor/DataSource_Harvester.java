@@ -8,6 +8,9 @@ import java.util.logging.Level;
 import com.newrelic.agent.HarvestListener;
 import com.newrelic.agent.config.AgentConfig;
 import com.newrelic.agent.config.AgentConfigListener;
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
 import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.agent.stats.StatsEngine;
 import com.newrelic.api.agent.Config;
@@ -37,6 +40,15 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 	private static final String REPORT_DSINFO = "SAP.DataMonitor.Datastore.Info.Report";
 	private static final String REPORT_DSSTATS = "SAP.DataMonitor.Datastore.Stats.Report";
 	private static final String REPORT_DML = "SAP.DataMonitor.DML.Report";
+	
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(HashMap<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		putValue(attributes, "Agent-InstanceName", instanceId);
+	}
 	
 	public static void init() {
 		ServiceFactory.getHarvestService().addHarvestListener(new DataSource_Harvester());
@@ -89,20 +101,15 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 		putValue(attributes, "DatabaseServerName", info.getDatabaseServerName());
 		putValue(attributes, "DataSourceName", info.getDataSourceName());
 		putValue(attributes, "IdleConnectionCount", info.getIdleConnectionCount());
-//		putValue(attributes, "InitConnectionCount", info.getInitConnections());
 		putValue(attributes, "MaxConnections", info.getMaxConnections());
 		putValue(attributes, "SumErrorConnectionRequestCount", info.getSumErrorConnectionRequestCount());
-//		putValue(attributes, "SumErrorConnectionRequestRate", info.getSumErrorConnectionRequestRate());
 		putValue(attributes, "SumSuccessConnectionRequestCount", info.getSumSuccessConnectionRequestCount());
-//		putValue(attributes, "SumSuccessConnectionRequestRate", info.getSumSuccessConnectionRequestRate());
 		putValue(attributes, "SumTimeoutConnectionRequestCount", info.getSumTimeoutConnectionRequestCount());
-//		putValue(attributes, "SumTimeoutConnectionRequestRate", info.getSumTimeoutConnectionRequestRate());
 		putValue(attributes, "UsedConnectionCount", info.getUsedConnectionCount());
-//		putValue(attributes, "UsedConnectionRate", info.getUsedConnectionRate());
 		putValue(attributes, "ValidConnectionRate", info.getValidConnectionRate());
 		putValue(attributes, "VendorName", info.getVendorName());
 		putValue(attributes, "WaitingConnectionRequestCount", info.getWaitingConnectionRequestCount());
-//		putValue(attributes, "WaitingConnectionRequestRate", info.getWaitingConnectionRequestRate());
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("DataSourceInfo", attributes);
 	}
 
@@ -164,6 +171,7 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 		}
 		
 		if(closed) {
+			addInstanceName(attributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("DatabaseStatistics", attributes);
 		}
 	}
@@ -190,6 +198,7 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 		putValue(attributes, "StmtPoolRefCount", querystats.getStmtPoolRefCount());
 		putValue(attributes, "TotalTime", querystats.getTotalTime());
 
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("QueryStatistics", attributes);
 	}
 
@@ -215,6 +224,7 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 		putValue(attributes, "SQL", dmlstats.getSQL());
 		putValue(attributes, "StmtPoolRefCount", dmlstats.getStmtPoolRefCount());
 		putValue(attributes, "TotalTime", dmlstats.getTotalTime());
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("DMLStatistics", attributes);
 	}
 
@@ -260,6 +270,7 @@ public class DataSource_Harvester implements HarvestListener, AgentConfigListene
 
 		putValue(attributes, "BytesReceived", dsStats.getBytesReceived());
 		putValue(attributes, "BytesSent", dsStats.getBytesSent());
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("DataStoreStatistics", attributes);
 	}
 

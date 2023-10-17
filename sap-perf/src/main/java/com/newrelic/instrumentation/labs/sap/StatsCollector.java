@@ -16,6 +16,10 @@ import java.util.logging.Level;
 import javax.management.ObjectName;
 
 import com.newrelic.agent.bridge.AgentBridge;
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TransactionNamePriority;
@@ -63,6 +67,15 @@ public class StatsCollector implements Runnable {
 	private Timestamp start = null;
 	private static HashMap<String,String> hashesToName = new HashMap<String, String>();
 	private static List<String> appKeys = new ArrayList<String>();
+	
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		putObject(attributes, "Agent-InstanceName", instanceId);
+	}
 
 	public static void initialize() {
 		intialized = true;
@@ -118,6 +131,7 @@ public class StatsCollector implements Runnable {
 						putObject(attributes, "App-key", app.getKey());
 						putObject(attributes, "App-Namespace", app.getNamespace());
 						putObject(attributes, "App-prefix", app.getPrefix());
+						addInstanceName(attributes);
 						NewRelic.getAgent().getInsights().recordCustomEvent("ActiveProfiles", attributes);
 					}
 				}
@@ -132,7 +146,6 @@ public class StatsCollector implements Runnable {
 						appKeys.add(regApp.getKey());
 						HashMap<String, Object> attributes = new HashMap<String, Object>();
 						putObject(attributes, "AppName", regApp.getName());
-//						putObject(attributes, "AppNameSpace", regApp.getNamespace());
 						putObject(attributes, "AppKey", regApp.getKey());
 						putObject(attributes, "AppPrefix", regApp.getPrefix());
 
@@ -142,9 +155,6 @@ public class StatsCollector implements Runnable {
 							int count = 1;
 							for(IProfile iProfile : profiles) {
 								putObject(attributes, "Profile-"+count+"-Name", iProfile.getName());
-//								putObject(attributes, "Profile-"+count+"-Hash", iProfile.getHash());
-//								putObject(attributes, "Profile-"+count+"-HashStr", new String(iProfile.getHash()));
-//								putObject(attributes, "Profile-"+count+"-HashHex", HexUtil.encode(iProfile.getHash()));
 								List<String> rtKeys = iProfile.getRuntimeKeys();
 								int keyCount = 1;
 								for(String rtKey : rtKeys) {
@@ -161,6 +171,7 @@ public class StatsCollector implements Runnable {
 								count++;
 							}
 						}
+						addInstanceName(attributes);
 						NewRelic.getAgent().getInsights().recordCustomEvent("RegisteredApps", attributes);
 					}
 				}
@@ -289,7 +300,6 @@ public class StatsCollector implements Runnable {
 					List<String> hashes = new ArrayList<String>();
 
 					if(entries != null) {
-						SAP_ITSAMXIOpStatus aggrResult = entries.getAggrOperationResult();
 						SAP_ITSAMXIAggrEntity[] entityArray = entries.getAggregationEntityArray();
 
 						if(entityArray != null) {
@@ -303,8 +313,6 @@ public class StatsCollector implements Runnable {
 					SAP_ITSAMXIPerfOvData perfOvData = util.RetreivePerfOverviewData(searchCriteria, 0, System.currentTimeMillis(), locale, thisComponentName);
 
 					if(perfOvData != null) {
-						SAP_ITSAMXIOpStatus aggregOverview = perfOvData.getAggregatedOperationResult();
-
 						SAP_ITSAMXIPerfOvType[] perfOverview = perfOvData.getPerformanceOverview();
 						if (perfOverview != null) {
 							for (SAP_ITSAMXIPerfOvType data : perfOverview) {
@@ -322,9 +330,7 @@ public class StatsCollector implements Runnable {
 							if(applicationName == null) {
 								applicationName = AggrEntityHashCode;
 							}
-//							putObject(attributes3, "Hash", AggrEntityHashCode);
 							putObject(attributes3,"Application",hashesToName.get(AggrEntityHashCode));
-//							putObject(attributes3, "PerfOverviewType", perfData);
 
 							SAP_ITSAMXIPerfData moduleData = util.RetrivePerformanceModuleData(AggrEntityHashCode, perfData, locale, thisComponentName);
 							putObject(attributes3, "ModuleData", moduleData != null);
@@ -332,7 +338,6 @@ public class StatsCollector implements Runnable {
 								SAP_ITSAMXIOpStatus aggrResult = moduleData.getAggregatedOpResult();
 								putObject(attributes3, "AggregationStatus", aggrResult.getStatus());
 								SAP_ITSAMXIPerfDataType[] perfData2 = moduleData.getPerformanceData();
-								int length = perfData2 != null ? perfData2.length : 0;
 								for(SAP_ITSAMXIPerfDataType dataType : perfData2) {
 									reportSAP_ITSAMXIPerfDataType(dataType, applicationName);
 								}
@@ -388,6 +393,7 @@ public class StatsCollector implements Runnable {
 		putObject(attributes, "TotalSize", data.getTotalSize());
 		putObject(attributes, "ToTime", data.getToTime());
 		putObject(attributes, "ToTimeDisp", data.getToTimeDisp());
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("SAP_ITSAMXIPerfOvType", attributes);
 	}
 
@@ -397,12 +403,10 @@ public class StatsCollector implements Runnable {
 		putObject(attributes, "AvgProcessTime", status.getAvgPrTime());
 		putObject(attributes, "Direction", status.getDirection());
 		String hashCode = status.getHashCode();
-//		putObject(attributes, "HashCode", hashCode);
 		putObject(attributes,"ProfileName",hashesToName.get(hashCode));
 
 		putObject(attributes, "InboundChannel", status.getInboundChannel());
 		putObject(attributes, "Interface", status.getInterface());
-//		putObject(attributes, "InterfaceNameSpace", status.getInterfaceNameSpace());
 		putObject(attributes, "MaxMsgSize", status.getMaxMsgSize());
 		putObject(attributes, "MinMsgSize", status.getMinMsgSize());
 		putObject(attributes, "MsgCountForAggrEntity", status.getMsgCountForAggrEntity());
@@ -424,7 +428,7 @@ public class StatsCollector implements Runnable {
 			putObject(attributes, "MinRetryValue", retryDetails.getMinValue());
 		}
 
-
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("AggregPerformanceData", attributes);
 	}
 

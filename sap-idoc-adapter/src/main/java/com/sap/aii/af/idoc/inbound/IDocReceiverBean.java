@@ -19,6 +19,7 @@ public abstract class IDocReceiverBean {
 		HashMap<String, Object> listAttributes = new HashMap<>();
 		
 		SAPIDocsUtils.addIDocDocumentList(listAttributes, iDocList);
+		SAPIDocsUtils.addInstanceName(listAttributes);
 		
 		NewRelic.getAgent().getInsights().recordCustomEvent("IDOCLIST_RECV", listAttributes);
 
@@ -28,6 +29,7 @@ public abstract class IDocReceiverBean {
 			HashMap<String, Object> docAttributes = new HashMap<>();
 			IDocDocument doc = iDocList.get(i);
 			SAPIDocsUtils.addIDocDocument(docAttributes, doc);
+			SAPIDocsUtils.addInstanceName(docAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);
 		}
 
@@ -41,12 +43,14 @@ public abstract class IDocReceiverBean {
 		for (IDocDocumentList iDocList : iDocLists) {
 			HashMap<String, Object> listAttributes = new HashMap<>();
 			SAPIDocsUtils.addIDocDocumentList(listAttributes, iDocList);
+			SAPIDocsUtils.addInstanceName(listAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("IDOCLIST_RECV", listAttributes);
 			int n = iDocList.getNumDocuments();
 			for (int i = 0; i < n; i++) {
 				HashMap<String, Object> docAttributes = new HashMap<>();
 				IDocDocument doc = iDocList.get(i);
 				SAPIDocsUtils.addIDocDocument(docAttributes, doc);
+				SAPIDocsUtils.addInstanceName(docAttributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);
 			} 
 		}

@@ -33,6 +33,7 @@ public class AdapterCollector {
 		} else {
 			attributes.put("initialized",false);
 		}
+		AdapterUtils.addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("MonitoringStatusListener", attributes);
 		initialized = true;
 	}

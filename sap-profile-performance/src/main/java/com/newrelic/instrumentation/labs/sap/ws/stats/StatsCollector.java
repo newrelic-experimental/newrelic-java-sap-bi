@@ -1,5 +1,9 @@
 package com.newrelic.instrumentation.labs.sap.ws.stats;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.aii.af.service.statistic.PeriodType;
 import com.sap.aii.af.service.statistic.ws.ProfileProcessorBean;
@@ -14,6 +18,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -26,6 +31,17 @@ public class StatsCollector implements Runnable {
 
 	private static Calendar end = null;
 
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		if(instanceId != null && !instanceId.isEmpty()) {
+			attributes.put("Agent-InstanceName", instanceId);
+		}
+	}
+
 	static {
 		NewRelic.getAgent().getLogger().log(Level.FINE, "Profile StatsCollector initialized at {0}", new Date());
 		long startTime = System.currentTimeMillis();
@@ -33,11 +49,12 @@ public class StatsCollector implements Runnable {
 		begin.setTimeInMillis(startTime);
 		Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(new StatsCollector(), 1L, 5L, TimeUnit.MINUTES);
 	}
-
+	
 	public static void addProcessor(ProfileProcessorBean bean) {
 		processors.add(bean);
 	}
 
+	@SuppressWarnings("deprecation")
 	public void run() {
 		HashMap<String, Object> attributes = new HashMap<>();
 		WSPeriod period = new WSPeriod();
@@ -85,7 +102,8 @@ public class StatsCollector implements Runnable {
 		} 
 		begin = Calendar.getInstance();
 		begin.setTimeInMillis(end.getTimeInMillis());
-		NewRelic.getAgent().getInsights().recordCustomEvent("WSPerfCollection", attributes);
+		addInstanceName(attributes);
+ 		NewRelic.getAgent().getInsights().recordCustomEvent("WSPerfCollection", attributes);
 	}
 
 	private static void reportWSHashPerformanceObject(WSProfile profile, WSHashPerformanceObject perfObj) {
@@ -108,6 +126,7 @@ public class StatsCollector implements Runnable {
 		double totalTime = avgTime * perfObj.getCounter().longValue();
 		addObject("TotalProcessingTime", Double.valueOf(totalTime), attributes);
 		addObject("AvgProcessingTime", Double.valueOf(totalTime / perfObj.getCounter().longValue()), attributes);
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("WSHashPerformance", attributes);
 	}
 

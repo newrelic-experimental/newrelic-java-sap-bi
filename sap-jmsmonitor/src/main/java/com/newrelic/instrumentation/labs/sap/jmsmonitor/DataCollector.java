@@ -7,6 +7,9 @@ import java.util.Set;
 import javax.jms.JMSException;
 
 import com.newrelic.agent.HarvestListener;
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
 import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.agent.stats.StatsEngine;
 import com.newrelic.api.agent.NewRelic;
@@ -22,6 +25,15 @@ public class DataCollector implements HarvestListener {
 	private static final Map<MessageMonitoringFacade,ServiceEnvironment> jmsMonitors = new HashMap<MessageMonitoringFacade, ServiceEnvironment>();
 	
 	public static boolean initialized = false;
+
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(HashMap<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		putValue(attributes, "Agent-InstanceName", instanceId);
+	}
 	
 	public static void addMessageMonitoringFacade(MessageMonitoringFacade facade, ServiceEnvironment env) {
 		Set<MessageMonitoringFacade> keys = jmsMonitors.keySet();
@@ -170,6 +182,7 @@ public class DataCollector implements HarvestListener {
 					}
 					
 					if(!isTmp) {
+						addInstanceName(queueattributes);
 						NewRelic.getAgent().getInsights().recordCustomEvent("JMSQueue", queueattributes);
 					}
 					
@@ -188,7 +201,8 @@ public class DataCollector implements HarvestListener {
 				putValue(queueattributes,"MessageCountInDB", tmpInDB);
 				putValue(queueattributes,"SuccessfullCacheHits", tmpSucc);
 				putValue(queueattributes,"UnnecessaryStores", tmpUnNecessary);			
-				putValue(queueattributes,"UnsuccessfullCacheHits", tmpUnSucc);		
+				putValue(queueattributes,"UnsuccessfullCacheHits", tmpUnSucc);
+				addInstanceName(queueattributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("JMSQueue", queueattributes);
 				tmpConsumers = 0;
 				tmpDead = 0;
@@ -271,6 +285,7 @@ public class DataCollector implements HarvestListener {
 					}
 					
 					if(!isTmp) {
+						addInstanceName(topicattributes);
 						NewRelic.getAgent().getInsights().recordCustomEvent("JMSTopic", topicattributes);
 					}
 					
@@ -289,7 +304,8 @@ public class DataCollector implements HarvestListener {
 				putValue(topicattributes,"MessageCountInDB", tmpInDB);
 				putValue(topicattributes,"SuccessfullCacheHits", tmpSucc);
 				putValue(topicattributes,"UnnecessaryStores", tmpUnNecessary);			
-				putValue(topicattributes,"UnsuccessfullCacheHits", tmpUnSucc);			
+				putValue(topicattributes,"UnsuccessfullCacheHits", tmpUnSucc);	
+				addInstanceName(topicattributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("JMSTopic", topicattributes);
 			}
 			NewRelic.getAgent().getInsights().recordCustomEvent("JMSMonitor", attributes);

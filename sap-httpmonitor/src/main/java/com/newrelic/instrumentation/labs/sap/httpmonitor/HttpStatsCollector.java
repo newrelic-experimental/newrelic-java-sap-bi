@@ -1,10 +1,12 @@
 package com.newrelic.instrumentation.labs.sap.httpmonitor;
 
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
 import com.newrelic.agent.HarvestListener;
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
 import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.agent.stats.StatsEngine;
 import com.newrelic.api.agent.NewRelic;
@@ -21,7 +23,17 @@ public class HttpStatsCollector implements HarvestListener {
 	public static boolean collectWeb = false;
 	
 	public static boolean initialized = false;
+
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		putValue(attributes, "Agent-InstanceName", instanceId);
+	}
 	
+
 	static {
 		if(!initialized) {
 			init();
@@ -59,7 +71,7 @@ public class HttpStatsCollector implements HarvestListener {
 				putValue(attributes, "TimedOutHttpSessions", webMonitoring.getTimedOutHttpSessions());
 				putValue(attributes, "TimedOutSecuritySessions", webMonitoring.getTimedOutSecuritySessions());
 				putValue(attributes, "TotalResponseTime", webMonitoring.getTotalResponseTime());
-				
+				addInstanceName(attributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("WebMonitoring", attributes);
 			} 
 		}
@@ -85,6 +97,7 @@ public class HttpStatsCollector implements HarvestListener {
 				for (int respCode : responseCodes) {
 					putValue(attributes, respCode + "-ResponsesCount", httpMonitoring.getResponsesCount(respCode));
 				}
+				addInstanceName(attributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("HttpMonitoring", attributes);
 			} 
 		}
