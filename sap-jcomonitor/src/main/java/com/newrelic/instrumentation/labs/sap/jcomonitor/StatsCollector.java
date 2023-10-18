@@ -3,9 +3,14 @@ package com.newrelic.instrumentation.labs.sap.jcomonitor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.conn.jco.JCoDestinationManager;
 import com.sap.conn.jco.monitor.JCoConnectionData;
@@ -20,6 +25,15 @@ public class StatsCollector implements Runnable {
 	private static final List<JCoServerMonitor> serverMonitors = new ArrayList<JCoServerMonitor>();
 	private static final List<JCoDestinationManager> destMgrs = new ArrayList<JCoDestinationManager>();
 	private static final List<JCoRepositoryMonitor> repos = new ArrayList<JCoRepositoryMonitor>();
+	
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(HashMap<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		putValue(attributes, "Agent-InstanceName", instanceId);
+	}
 	
 
 	public static void init() {
@@ -61,6 +75,7 @@ public class StatsCollector implements Runnable {
 			putValue(serverAttributes, "UsedServerThreadCount", server.getUsedServerThreadCount());
 			List<JCoConnectionData> clientMonitors = (List<JCoConnectionData>) server.getConnectionsData();
 			putValue(serverAttributes, "ClientConnections", clientMonitors != null ? clientMonitors.size() : 0);
+			addInstanceName(serverAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("JCoServer", serverAttributes);
 		}
 
@@ -82,6 +97,7 @@ public class StatsCollector implements Runnable {
 				putValue(destAttributes, "PooledConnectionCount",destMonitor.getPooledConnectionCount());
 				putValue(destAttributes, "UsedConnectionCount",destMonitor.getUsedConnectionCount());
 				putValue(destAttributes, "WaitingThreadCount",destMonitor.getWaitingThreadCount());
+				addInstanceName(destAttributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("JCoDestination", destAttributes);
 				
 				JCoDestinationMonitor repoMonitor = mgr.getRepositoryDestinationMonitor(destId);
@@ -94,6 +110,7 @@ public class StatsCollector implements Runnable {
 				putValue(repoAttributes, "PooledConnectionCount",repoMonitor.getPooledConnectionCount());
 				putValue(repoAttributes, "UsedConnectionCount",repoMonitor.getUsedConnectionCount());
 				putValue(repoAttributes, "WaitingThreadCount",repoMonitor.getWaitingThreadCount());
+				addInstanceName(repoAttributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("JCoDestination", repoAttributes);
 			}
 			
@@ -108,10 +125,12 @@ public class StatsCollector implements Runnable {
 			putValue(repoAttributes, "LastAccessTimestamp",repoMonitor.getLastAccessTimestamp());
 			putValue(repoAttributes, "LastRemoteQueryTimestamp",repoMonitor.getLastRemoteQueryTimestamp());
 			putValue(repoAttributes, "TypeMetaDataCount",repoMonitor.getTypeMetaDataCount());
+			addInstanceName(repoAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("JCoRepositoryMonitor", repoAttributes);
 			
 		}
 
+		addInstanceName(attributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("JCOMonitor", attributes);
 
 	}

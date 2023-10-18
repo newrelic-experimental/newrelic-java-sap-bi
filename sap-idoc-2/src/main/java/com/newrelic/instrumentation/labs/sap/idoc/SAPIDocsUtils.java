@@ -2,11 +2,24 @@ package com.newrelic.instrumentation.labs.sap.idoc;
 
 import java.util.Map;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.sap.conn.idoc.IDocDocument;
 import com.sap.conn.idoc.IDocDocumentList;
 import com.sap.conn.jco.JCoDestination;
 
 public class SAPIDocsUtils {
+	
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		addAttribute(attributes, "Agent-InstanceName", instanceId);
+	}
 
 	public static void addAttribute(Map<String,Object> attributes, String key, Object value) {
 		if(attributes != null && key != null && !key.isEmpty() && value != null) {

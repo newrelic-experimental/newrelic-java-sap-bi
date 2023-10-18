@@ -20,7 +20,7 @@ public abstract class IDocInboundProcessor {
 		HashMap<String, Object> listAttributes = new HashMap<>();
 		
 		SAPIDocsUtils.addIDocDocumentList(listAttributes, iDocList);
-		
+		SAPIDocsUtils.addInstanceName(listAttributes);
 		NewRelic.getAgent().getInsights().recordCustomEvent("IDOCLIST_RECV", listAttributes);
 
 		int n = iDocList.getNumDocuments();
@@ -29,6 +29,7 @@ public abstract class IDocInboundProcessor {
 			HashMap<String, Object> docAttributes = new HashMap<>();
 			IDocDocument doc = iDocList.get(i);
 			SAPIDocsUtils.addIDocDocument(docAttributes, doc);
+			SAPIDocsUtils.addInstanceName(docAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);
 		}
 

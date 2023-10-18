@@ -2,6 +2,10 @@ package com.newrelic.instrumentation.labs.sap.adaptermonitoring;
 
 import java.util.Map;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.sap.aii.af.service.administration.api.monitoring.ChannelState;
 import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.Message;
@@ -13,7 +17,16 @@ import com.sap.engine.interfaces.messaging.api.MessageKey;
  *
  */
 public class AdapterUtils {
+	
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
 
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		addValue(attributes, "Agent-InstanceName", instanceId);
+	}
+	
 	public static void addMessageKey(Map<String,Object> attributes, MessageKey msgKey) {
 		if(msgKey != null) {
 			addValue(attributes, "MessageKey-ID", msgKey.getMessageId());

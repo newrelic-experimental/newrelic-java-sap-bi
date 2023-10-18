@@ -91,6 +91,7 @@ public abstract class ModuleProcessorBean {
 		names.toArray(namesArray);
 		traced.setMetricName(namesArray);
 		if(!eventAttributes.isEmpty()) {
+			AdaptersUtils.addInstanceName(eventAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("AdapterMessage", eventAttributes);
 		}
 		
@@ -111,6 +112,7 @@ public abstract class ModuleProcessorBean {
 		}
 
 		if(!eventAttributes.isEmpty()) {
+			AdaptersUtils.addInstanceName(eventAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("AdapterMessage", eventAttributes);
 		}
 		

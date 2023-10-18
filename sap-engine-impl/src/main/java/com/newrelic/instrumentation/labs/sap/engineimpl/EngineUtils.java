@@ -1,13 +1,10 @@
 package com.newrelic.instrumentation.labs.sap.engineimpl;
 
-import java.util.HashMap;
 import java.util.Map;
 
-import com.newrelic.api.agent.NewRelic;
 import com.sap.engine.interfaces.messaging.api.Action;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
-import com.sap.engine.interfaces.messaging.api.MessageStatus;
 import com.sap.engine.interfaces.messaging.api.Party;
 import com.sap.engine.interfaces.messaging.api.Service;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
@@ -71,17 +68,6 @@ public class EngineUtils {
 		}
 	}
 	
-	public static void recordMessageLog(Message message, MessageStatus status, String errorCode) {
-		HashMap<String, Object> attributes = new HashMap<String, Object>();
-		addMessageKey(attributes, message.getMessageKey());
-		if(status != null) {
-			recordValue(attributes,"MessageStatus",status.toString());
-		}
-		recordValue(attributes, "ErrorCode", errorCode);
-		NewRelic.getAgent().getInsights().recordCustomEvent("MessageLog", attributes);
-	}
-
-
 	public static void addMessageKey(Map<String,Object> attributes, MessageKey msgKey) {
 		if(msgKey != null) {
 			recordValue(attributes, "MessageKey-ID", msgKey.getMessageId());

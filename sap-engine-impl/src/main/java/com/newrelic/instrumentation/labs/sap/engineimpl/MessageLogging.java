@@ -10,6 +10,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.engine.interfaces.messaging.api.APIAccess;
 import com.sap.engine.interfaces.messaging.api.APIAccessFactory;
@@ -28,6 +32,15 @@ public class MessageLogging implements Runnable {
 	private Date startDate;
 	private static String[] dateTypes = {"SentReceive","TransmitDeliver","NextDelivery","ValidUntil","PersistUntil"};
 	List<String> recorded = new ArrayList<String>();
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		reportValue(attributes, "Agent-InstanceName", instanceId);
+	}
+	
 	
 	public static void init() {
 		initialized = true;
@@ -78,6 +91,7 @@ public class MessageLogging implements Runnable {
 				} 
 				attributes.put("MessageReported-"+dateTypes[i-1], reported);
 			}
+			addInstanceName(attributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("MessageCollection", attributes);
 			startDate = endDate;
 			recorded.removeAll(copy);

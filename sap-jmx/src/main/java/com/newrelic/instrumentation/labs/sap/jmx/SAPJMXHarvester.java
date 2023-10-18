@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +34,9 @@ import com.newrelic.agent.deps.org.json.simple.JSONArray;
 import com.newrelic.agent.deps.org.json.simple.JSONObject;
 import com.newrelic.agent.deps.org.json.simple.parser.JSONParser;
 import com.newrelic.agent.deps.org.json.simple.parser.ParseException;
+import com.newrelic.agent.environment.AgentIdentity;
+import com.newrelic.agent.environment.Environment;
+import com.newrelic.agent.environment.EnvironmentService;
 import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.agent.stats.StatsEngine;
 import com.newrelic.api.agent.Config;
@@ -56,6 +60,18 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 	private static boolean collectIndivdualThreadInfo = true;
 
 	private int loopCounter = 0;
+
+	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static Environment agentEnvironment = environmentService.getEnvironment();
+
+	public static void addInstanceName(Map<String, Object> attributes) {
+		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
+		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
+		if(instanceId != null && !instanceId.isEmpty()) {
+			attributes.put("AgentInstanceId", instanceId);
+		}
+	}
+	
 
 	static {
 		processConfiguration();
@@ -290,6 +306,7 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 						}
 
 						if(reported) {
+							addInstanceName(map);
 							NewRelic.getAgent().getInsights().recordCustomEvent("SAPJMX", map);
 						}
 					}
@@ -481,6 +498,7 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 					attrs.put("MemoryUtilization", memUtil);
 				}
 				if(collected) {
+					addInstanceName(attrs);
 					NewRelic.getAgent().getInsights().recordCustomEvent("OSUtilization", attrs);
 				}
 			}
@@ -523,6 +541,7 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 					collected = true;
 				}
 				if(collected) {
+					addInstanceName(attrs);
 					NewRelic.getAgent().getInsights().recordCustomEvent("SessionMonitoring", attrs);
 				}
 			}
@@ -563,6 +582,7 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 					}
 				}
 
+				addInstanceName(attrs);
 				NewRelic.getAgent().getInsights().recordCustomEvent("SAPThreads", attrs);
 				if (collectIndivdualThreadInfo) {
 					long[] ids = (long[]) mbs.invoke(inst.getObjectName(), "getAllThreadIds", null, null);
@@ -609,6 +629,7 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 							putValue(attributes, "ThreadUserTime", cpuTime);
 
 							if (report) {
+								addInstanceName(attrs);
 								NewRelic.getAgent().getInsights().recordCustomEvent("SAPThread", attributes);
 							}
 						}
