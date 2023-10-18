@@ -7,3 +7,4 @@ bin
 .classpath
 .project
 */lib/*.jar
+.DS_Store
