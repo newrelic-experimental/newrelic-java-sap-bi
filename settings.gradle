@@ -40,9 +40,5 @@ include 'sap-ngdbc'
 include 'sap-idoc-1'
 include 'sap-idoc-2'
 include 'sap-communication-channels'
-<<<<<<< HEAD
-include 'sap-channel-jmx'
 include 'sap-profile-performance'
-=======
-include 'sap-profile-performance'
->>>>>>> main
+include 'sap-gateway-monitor'

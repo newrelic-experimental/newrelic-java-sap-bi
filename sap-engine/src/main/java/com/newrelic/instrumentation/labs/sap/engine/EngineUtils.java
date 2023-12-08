@@ -2,11 +2,20 @@ package com.newrelic.instrumentation.labs.sap.engine;
 
 import java.util.Map;
 
-import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 
 public class EngineUtils {
+	
+	public static ThreadLocal<Boolean> HEADERS_SET = new ThreadLocal<Boolean>() {
+
+		@Override
+		protected Boolean initialValue() {
+			return false;
+		}
+		
+		
+	};
 	
 	public static void addMessageKey(Map<String,Object> attributes, MessageKey msgKey) {
 		if(msgKey != null) {
@@ -31,28 +40,6 @@ public class EngineUtils {
 		
 	}
 	
-	public static void addChannel(Map<String,Object> attributes, Channel channel) {
-		if(channel != null) {
-			addValue(attributes, "Channel-Name", channel.getChannelName());
-			addValue(attributes, "Channel-AdapterNamespace", channel.getAdapterNamespace());
-			addValue(attributes, "Channel-AdapterType", channel.getAdapterType());
-			addValue(attributes, "Channel-Direction", channel.getDirection());
-			addValue(attributes, "Channel-EngineName", channel.getEngineName());
-			addValue(attributes, "Channel-EngineType", channel.getEngineType());
-			addValue(attributes, "Channel-ObjectName", channel.getObjectName());
-			addValue(attributes, "Channel-ObjectType", channel.getObjectType());
-			addValue(attributes, "Channel-Party", channel.getParty());
-			addValue(attributes, "Channel-Service", channel.getService());
-		}
-	}
-	
-//	public static void addEndpoint(Map<String,Object> attributes, Endpoint endpoint) {
-//		if(endpoint != null) {
-//			addValue(attributes, "Endpoint-Address", endpoint.getAddress());
-//			addValue(attributes, "Endpoint-Transport", endpoint.getTransport());
-//		}
-//	}
-//	
 	public static void addValue(Map<String,Object> attributes, String key, Object value) {
 		if(key != null && !key.isEmpty() && value != null) {
 			attributes.put(key, value);
