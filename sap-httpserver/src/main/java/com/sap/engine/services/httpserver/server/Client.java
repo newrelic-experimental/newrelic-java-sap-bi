@@ -8,10 +8,8 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.newrelic.instrumentation.sap.httpserver.SAPHeadersWrapper;
 import com.sap.engine.services.httpserver.interfaces.client.Request;
 import com.sap.engine.services.httpserver.interfaces.client.RequestLine;
-import com.sap.engine.services.httpserver.lib.headers.MimeHeaders;
 import com.sap.engine.services.httpserver.lib.util.MessageBytes;
 
 @Weave
@@ -22,9 +20,9 @@ public abstract class Client {
 	@Trace
 	public void send(byte[] msg, int off, int len) {
 		Request req = getRequest();
-		MimeHeaders headers = req.getHeaders();
-		SAPHeadersWrapper wrapper = new SAPHeadersWrapper(headers);
-		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(wrapper);
+//		MimeHeaders headers = req.getHeaders();
+//		SAPHeadersWrapper wrapper = new SAPHeadersWrapper(headers);
+//		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(wrapper);
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		String host = req.getHost();
 		int port = req.getPort();
@@ -49,9 +47,9 @@ public abstract class Client {
 	@Trace
 	public void send(byte[] msg, int off, int len, byte connectionFlag) {
 		Request req = getRequest();
-		MimeHeaders headers = req.getHeaders();
-		SAPHeadersWrapper wrapper = new SAPHeadersWrapper(headers);
-		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(wrapper);
+//		MimeHeaders headers = req.getHeaders();
+//		SAPHeadersWrapper wrapper = new SAPHeadersWrapper(headers);
+//		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(wrapper);
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		String host = req.getHost();
 		int port = req.getPort();
