@@ -12,6 +12,7 @@ public abstract class SAP_ITSAMXIAdapterChannelService_Impl implements SAP_ITSAM
 	
 	@WeaveAllConstructors
 	public SAP_ITSAMXIAdapterChannelService_Impl() {
+		CommunicationChannelMonitor.addChannel(this);
 		if(!CommunicationChannelMonitor.initialized) {
 			CommunicationChannelMonitor.init();
 		}
