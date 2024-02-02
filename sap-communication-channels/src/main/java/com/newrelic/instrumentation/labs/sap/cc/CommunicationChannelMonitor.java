@@ -3,23 +3,15 @@ package com.newrelic.instrumentation.labs.sap.cc;
 import java.io.File;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 
 import com.newrelic.agent.config.AgentConfig;
 import com.newrelic.agent.config.AgentConfigListener;
 import com.newrelic.agent.config.ConfigFileHelper;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.Appender;
+import com.newrelic.agent.deps.org.apache.logging.log4j.Level;
 import com.newrelic.agent.deps.org.apache.logging.log4j.core.LoggerContext;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.appender.RollingFileAppender;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.appender.rolling.CompositeTriggeringPolicy;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.appender.rolling.CronTriggeringPolicy;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.appender.rolling.SizeBasedTriggeringPolicy;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.appender.rolling.TimeBasedTriggeringPolicy;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.appender.rolling.TriggeringPolicy;
 import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.Configurator;
 import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.api.AppenderComponentBuilder;
 import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.api.ComponentBuilder;
@@ -43,8 +35,10 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 
 	public static boolean initialized = false;
 	private static long lastCollection;
-	private static ExtendedLogger LOGGER;
+	private static ExtendedLogger DETAILSLOGGER;
+	private static ExtendedLogger SUMMARYLOGGER;
 	protected static final String CHANNELLOGFILENAME = "SAP.communicationlog.log_file_name";
+	protected static final String SUMMARYCHANNELLOGFILENAME = "SAP.communicationlog.summarylog_file_name";
 	protected static final String CHANNELLOGROLLOVERINTERVAL = "SAP.communicationlog.log_file_interval";
 	protected static final String CHANNELLOGIGNORES = "SAP.communicationlog.ignores";
 	protected static final String CHANNELLOGROLLOVERSIZE = "SAP.communicationlog.log_size_limit";
@@ -52,7 +46,8 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 	protected static final String CHANNELLOGMAXFILES = "SAP.communicationlog.log_file_count";
 	protected static final String CHANNELSLOGENABLED = "SAP.communicationlog.enabled";
 	public static final String log_file_name = "communicationchannels.log";
-	private static LoggerContext ctx = null;
+	public static final String summary_log_file_name = "channelsummary.log";
+	private static LoggerContext logging_ctx = null;
 	private static CommunicationChannelConfig currentChannelConfig = null;
 	private static CommunicationChannelMonitor INSTANCE = null;
 	private static boolean enabled = true;
@@ -79,8 +74,8 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 
 				enabled = currentChannelConfig.isEnabled();
 
-				ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
-				builder.setStatusLevel(com.newrelic.agent.deps.org.apache.logging.log4j.Level.INFO);
+				ConfigurationBuilder<BuiltConfiguration> cc_builder = ConfigurationBuilderFactory.newConfigurationBuilder();
+				cc_builder.setStatusLevel(Level.INFO);
 
 				int rolloverMinutes = currentChannelConfig.getRolloverMinutes();
 				String cronString;
@@ -95,12 +90,11 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 
 				String rolloverSize = currentChannelConfig.getRolloverSize();
 
-				ComponentBuilder triggeringPolicy = builder.newComponent("Policies")
-						.addComponent(builder.newComponent("CronTriggeringPolicy").addAttribute("schedule", cronString))
-						.addComponent(builder.newComponent("SizeBasedTriggeringPolicy").addAttribute("size", rolloverSize));
+				ComponentBuilder triggeringPolicy = cc_builder.newComponent("Policies")
+						.addComponent(cc_builder.newComponent("CronTriggeringPolicy").addAttribute("schedule", cronString))
+						.addComponent(cc_builder.newComponent("SizeBasedTriggeringPolicy").addAttribute("size", rolloverSize));
 
-				
-				AppenderComponentBuilder communicationFile = builder.newAppender("rolling", "RollingFile");
+				AppenderComponentBuilder communicationFile = cc_builder.newAppender("ccrolling", "RollingFile");
 
 				String communicationFileName = currentChannelConfig.getChannelLog();
 				if(communicationFileName == null || communicationFileName.isEmpty()) {
@@ -112,92 +106,82 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 				int maxFiles = currentChannelConfig.getMaxLogFiles();
 
 				communicationFile.addAttribute("fileName", communicationFileName);
-				communicationFile.addAttribute("filePattern",communicationFileName + "-%d{MM-dd-yyyy_HH-mm}");
+				communicationFile.addAttribute("filePattern",communicationFileName + "-%i");
 				communicationFile.addAttribute("max", maxFiles);
-				LayoutComponentBuilder standard = builder.newLayout("PatternLayout");
+				LayoutComponentBuilder standard = cc_builder.newLayout("PatternLayout");
 				standard.addAttribute("pattern", "%msg%n%throwable");
 				communicationFile.add(standard);
 				communicationFile.addComponent(triggeringPolicy);
 
-				ComponentBuilder rolloverStrategy = builder.newComponent("DefaultRolloverStrategy").addAttribute("max", maxFiles);
+				ComponentBuilder rolloverStrategy = cc_builder.newComponent("DefaultRolloverStrategy").addAttribute("max", maxFiles);
 
 				communicationFile.addComponent(rolloverStrategy);
 
-				builder.add(communicationFile);
+				cc_builder.add(communicationFile);
 
-				builder.add(builder.newLogger("CommunctionChannelLog",com.newrelic.agent.deps.org.apache.logging.log4j.Level.INFO)
-						.add(builder.newAppenderRef("rolling"))
+				cc_builder.add(cc_builder.newLogger("CommunctionChannelLog",Level.INFO)
+						.add(cc_builder.newAppenderRef("ccrolling"))
 						.addAttribute("additivity", false));
-
-				BuiltConfiguration config = builder.build();
 				
-				Map<String, Appender> appenders = config.getAppenders();
 				
-				for(String name : appenders.keySet()) {
-					Appender appender = appenders.get(name);
-					if(appender != null) {
-						NewRelic.getAgent().getLogger().log(Level.FINE, "Have Appender {0} of type {1}", name,appender.getClass());
-						if(appender instanceof RollingFileAppender) {
-							RollingFileAppender rfAppender = (RollingFileAppender)appender;
-							TriggeringPolicy policy = rfAppender.getTriggeringPolicy();
-							HashMap<String, Object> attributes = new HashMap<>();
-							attributes.put("Rolling File Name", rfAppender.getFileName());
-							attributes.put("Rolling File Pattern", rfAppender.getFilePattern());
-							
-							attributes.putAll(logPolicy(policy));
-							NewRelic.getAgent().getInsights().recordCustomEvent("ComChannelAppender", attributes);
-						}
-					}
+				
+				ComponentBuilder triggeringPolicy2 = cc_builder.newComponent("Policies")
+						.addComponent(cc_builder.newComponent("CronTriggeringPolicy").addAttribute("schedule", cronString))
+						.addComponent(cc_builder.newComponent("SizeBasedTriggeringPolicy").addAttribute("size", rolloverSize));
+
+				AppenderComponentBuilder summaryFile = cc_builder.newAppender("sumrolling", "RollingFile");
+
+				String summaryFileName = currentChannelConfig.getSummaryChannelLog();
+
+				if(summaryFileName == null || summaryFileName.isEmpty()) {
+					File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
+					File logfile = new File(newRelicDir,summary_log_file_name);
+					summaryFileName = logfile.getName();
 				}
-
-				if(ctx == null) {
-					ctx = Configurator.initialize(config);
-				} else {
-					ctx.setConfiguration(config);
-					ctx.reconfigure();
-				}
-
-				LOGGER = ctx.getLogger("CommunctionChannelLog");
-
-				Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(new CommunicationChannelMonitor(), 2L, 2L, TimeUnit.MINUTES);
-				initialized = true;
-				NewRelic.getAgent().getLogger().log(Level.FINE, ", log file is {0}",currentChannelConfig.getChannelLog());
-			} catch (Exception e) {
-				NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to open communication channel log");
-			}
-
-
-		}
-	}
-	
-	private static HashMap<String, Object>  logPolicy(TriggeringPolicy policy) {
-		HashMap<String, Object> attributes = new HashMap<>();
-		
-		if(policy instanceof CompositeTriggeringPolicy) {
-			CompositeTriggeringPolicy cPolicy = (CompositeTriggeringPolicy)policy;
-			TriggeringPolicy[] policies = cPolicy.getTriggeringPolicies();
-			attributes.put("IsComposite", true);
-			for(TriggeringPolicy pol : policies) {
-				attributes.putAll(logPolicy(pol));
-			}
 			
-		} else {
-			if(policy instanceof CronTriggeringPolicy) {
-				CronTriggeringPolicy cronPolicy = (CronTriggeringPolicy)policy;
-				attributes.put("PolicyType", "CronBased");
-				attributes.put("Cron Expression", cronPolicy.getCronExpression());
-			} else if(policy instanceof SizeBasedTriggeringPolicy) {
-				SizeBasedTriggeringPolicy sizePolicy = (SizeBasedTriggeringPolicy)policy;
-				attributes.put("PolicyType", "SizeBased");
-				attributes.put("Max File Size",  sizePolicy.getMaxFileSize());
-			} else if(policy instanceof TimeBasedTriggeringPolicy) {
-				TimeBasedTriggeringPolicy timePolicy = (TimeBasedTriggeringPolicy)policy;
-				attributes.put("PolicyType", "TimeBased");
-				attributes.put("Time Interval",  timePolicy.getInterval());
+				summaryFile.addAttribute("fileName", summaryFileName);
+				summaryFile.addAttribute("filePattern",summaryFileName + "-%i");
+				summaryFile.addAttribute("max", maxFiles);
+				summaryFile.add(standard);
+				summaryFile.addComponent(triggeringPolicy2);
+				summaryFile.addComponent(rolloverStrategy);
+
+				ComponentBuilder rolloverStrategy2 = cc_builder.newComponent("DefaultRolloverStrategy").addAttribute("max", maxFiles);
+				summaryFile.addComponent(rolloverStrategy2);
+				cc_builder.add(summaryFile);
+
+				cc_builder.add(cc_builder.newLogger("SummaryChannelLog", Level.INFO)
+						.add(cc_builder.newAppenderRef("sumrolling"))
+						.addAttribute("additivity", false));
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "CommunicationChannels - Value of ConfigurationBuilder XML is {0}", cc_builder.toXmlConfiguration());
+
+				BuiltConfiguration details_config = cc_builder.build();
+
+				if(logging_ctx == null) {
+					logging_ctx = Configurator.initialize(details_config);
+				} else {
+					logging_ctx.setConfiguration(details_config);
+					logging_ctx.reconfigure();
+				}
+
+				DETAILSLOGGER = logging_ctx.getLogger("CommunctionChannelLog");
+
+				
+				SUMMARYLOGGER = logging_ctx.getLogger("SummaryChannelLog");
+				
+
+				ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
+				executor.scheduleAtFixedRate(new CommunicationChannelMonitor(), 2L, 2L, TimeUnit.MINUTES);
+				executor.scheduleAtFixedRate(new SummaryFileLogger(), 5L, 5L, TimeUnit.MINUTES);
+				initialized = true;
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, ", log file is {0}",currentChannelConfig.getChannelLog());
+
+			} catch (Exception e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Failed to open communication channel log");
 			}
+
+
 		}
-		return attributes;
-		
 	}
 
 	public static CommunicationChannelConfig getConfig(Config agentConfig) {
@@ -223,7 +207,7 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 				channelConifg.setRolloverSize(rolloverSize);
 			}
 		}
-		
+
 		String filename = agentConfig.getValue(CHANNELLOGFILENAME);
 		if(filename != null && !filename.isEmpty()) {
 			channelConifg.setChannelLog(filename);
@@ -231,6 +215,11 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 
 		boolean enabled = agentConfig.getValue(CHANNELSLOGENABLED, Boolean.TRUE);
 		channelConifg.setEnabled(enabled);
+		
+		String summary = agentConfig.getValue(SUMMARYCHANNELLOGFILENAME);
+		if(summary != null && !summary.isEmpty()) {
+			channelConifg.setSummaryChannelLog(summary);
+		}
 
 		return channelConifg;
 
@@ -241,12 +230,12 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 
 		Logger logger = NewRelic.getAgent().getLogger();
 		if(!enabled) {
-			logger.log(Level.FINE, "Communication Channel Monitoring is disabled, skipping monitoring");
+			logger.log(java.util.logging.Level.FINE, "Communication Channel Monitoring is disabled, skipping monitoring");
 			return;
 		}
 
 		long now = System.currentTimeMillis();
-		logger.log(Level.FINE, "Communication Channel Monitor start, now: {0}, lastColletion: {1}",now, lastCollection);
+		logger.log(java.util.logging.Level.FINE, "Communication Channel Monitor start, now: {0}, lastColletion: {1}",now, lastCollection);
 
 		if(!initialized) {
 			init();
@@ -287,7 +276,7 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 			}
 
 		} catch (CPAException e) {
-			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to report communication channels due to CPAException");
+			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Failed to report communication channels due to CPAException");
 		}
 
 
@@ -327,7 +316,7 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 		//		}
 
 		lastCollection = now;
-		logger.log(Level.FINE, "Last collection set to {0}", lastCollection);
+		logger.log(java.util.logging.Level.FINE, "Last collection set to {0}", lastCollection);
 
 	}
 
@@ -483,7 +472,7 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 		sb.append('}');
 		String result = sb.toString();
 		if(!result.isEmpty()) {
-			LOGGER.log(com.newrelic.agent.deps.org.apache.logging.log4j.Level.INFO, result);
+			DETAILSLOGGER.log(Level.INFO, result);
 		}
 
 	}
@@ -506,6 +495,105 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 					init();
 				}
 			}
+		}
+
+	}
+
+	private static class SummaryFileLogger implements Runnable {
+
+		public void run() {
+			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Call to SummaryFileLogger.run");
+			try {
+				String[] channelIds = XIAdapterChannelUtil.getAllChannelIds();
+				SAP_ITSAMXIAdapterChannelList channelList = XIAdapterChannelUtil.getChannelDetails("ID", true, null, channelIds, null);
+
+				if(channelList != null) {
+					SAP_ITSAMXIAdapterChannel[] listOfChannels = channelList.getChannelList();
+					for(SAP_ITSAMXIAdapterChannel channel : listOfChannels) {
+						StringBuffer sb = new StringBuffer();
+						sb.append("Channel: [");
+						String name = channel.getChannelName();
+						if(name != null && !name.isEmpty()) {
+							sb.append("Name: ");
+							sb.append(name);
+							sb.append(',');
+						}
+
+						String channelId = channel.getChannelID();
+						if(channelId != null && !channelId.isEmpty()) {
+							sb.append("Channel Id: ");
+							sb.append(channelId);
+							sb.append(',');
+						}
+
+						String status = channel.getStatus();
+						if(status != null && !status.isEmpty()) {
+							sb.append("Channel Status: ");
+							sb.append(status);
+							sb.append(',');
+						}
+
+						String adapter = channel.getAdapterType();
+						if(adapter != null && !adapter.isEmpty()) {
+							sb.append("Adapter Type: ");
+							sb.append(adapter);
+							sb.append(',');
+						}
+
+						String direction = channel.getDirection();
+						if(direction != null && !direction.isEmpty()) {
+							sb.append("Direction: ");
+							sb.append(direction);
+							sb.append(',');
+						}
+
+						int nodes = channel.getNumberOfNodes();
+						if(nodes > -1) {
+							sb.append("Number of Nodes: ");
+							sb.append(nodes);
+							sb.append(',');
+						}
+
+						SAP_ITSAMXIAdapterChannelClusterData[] clusterData = channel.getClusterDetails();
+						if(clusterData != null) {
+							if (clusterData.length > 0) {
+								sb.append("ClusterData: [{");
+								int i = 1;
+								for (SAP_ITSAMXIAdapterChannelClusterData cData : clusterData) {
+									sb.append("{ Cluster )" + i + ": ");
+									String nodeid = cData.getClusterNodeID();
+									if(nodeid != null && !nodeid.isEmpty()) {
+										sb.append("Node ID: " + nodeid + ",");
+									}
+									String cStatus = cData.getStatus();
+									if(cStatus != null && !cStatus.isEmpty()) {
+										sb.append("Status: " + cStatus);
+									}
+									i++;
+									if(i < clusterData.length - 1) {
+										sb.append("}, ");
+									} else {
+										sb.append("}");
+									}
+								}
+								sb.append("]");
+							} else {
+								sb.append("ClusterData: [Empty]");
+							}
+						} else {
+							sb.append("ClusterData: No Cluster Data");
+						}
+						String result = sb.toString();
+						NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Writing summary to log: {0}", result);
+					
+						SUMMARYLOGGER.log(Level.INFO, result);
+					}
+					
+				}
+			} catch (CPAException e) {
+				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e,"Error writting to Summary Log file");
+			}
+
 		}
 
 	}

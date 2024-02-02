@@ -12,11 +12,14 @@ public class CommunicationChannelConfig {
 	private String rolloverSize = "100K";
 	private int rolloverMinutes = 0;
 	private boolean enabled = true;
+	private String summaryChannelLog = null;
 
 	public CommunicationChannelConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
 		File message_file = new File(newRelicDir, CommunicationChannelMonitor.log_file_name);
-		channelLog = message_file.getAbsolutePath();		
+		File summary_file = new File(newRelicDir,CommunicationChannelMonitor.summary_log_file_name);
+		channelLog = message_file.getAbsolutePath();	
+		summaryChannelLog = summary_file.getAbsolutePath();
 	}
 
 	public String getChannelLog() {
@@ -25,6 +28,14 @@ public class CommunicationChannelConfig {
 
 	public void setChannelLog(String channelLog) {
 		this.channelLog = channelLog;
+	}
+
+	public String getSummaryChannelLog() {
+		return summaryChannelLog;
+	}
+
+	public void setSummaryChannelLog(String summaryChannelLog) {
+		this.summaryChannelLog = summaryChannelLog;
 	}
 
 	public int getMaxLogFiles() {
@@ -53,7 +64,7 @@ public class CommunicationChannelConfig {
 
 	public boolean isEnabled() {
 		return enabled;
-	}
+	}	
 
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
@@ -67,7 +78,7 @@ public class CommunicationChannelConfig {
 		
 		CommunicationChannelConfig newConfig = (CommunicationChannelConfig)obj;
 		
- 		return newConfig.channelLog.equals(channelLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize) && newConfig.enabled == enabled;
+ 		return newConfig.channelLog.equals(channelLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize) && newConfig.enabled == enabled && newConfig.summaryChannelLog.equals(summaryChannelLog);
 	}
 	
 	public HashMap<String, Object> getCurrentSettings() {
@@ -78,6 +89,7 @@ public class CommunicationChannelConfig {
 		attributes.put("RollOverMinutes", rolloverMinutes);
 		attributes.put("ConfigurationType", "MessageLog");
 		attributes.put("Enabled", enabled);
+		attributes.put("SummaryFileName", summaryChannelLog);
 		
 		return attributes;
 	}
