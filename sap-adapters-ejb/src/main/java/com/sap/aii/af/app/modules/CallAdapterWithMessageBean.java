@@ -25,13 +25,6 @@ public abstract class CallAdapterWithMessageBean {
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName("Custom","SAP",adapterType,"Adapters","Channel","Receiver",adapterType);
 		
-//		HashMap<String,Object> attributes = new HashMap<String, Object>();
-//		AdaptersUtils.addChannel(attributes, channel);
-//		traced.addCustomAttribute("Channel", channel.getChannelName());
-//		traced.addCustomAttribute("Party", channel.getParty());
-//		traced.addCustomAttribute("Service", channel.getService());
-//		traced.addCustomAttribute("Engine", channel.getEngineName());
-
 		return Weaver.callOriginal();
 	}
 	
@@ -41,17 +34,6 @@ public abstract class CallAdapterWithMessageBean {
 		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName("Custom","SAP","Adapters","Channel","Sender",connection.getName());
-//		try {
-//			CPALookupManager lm = CPAFactory.getInstance().getLookupManager();
-//			String strDisableCaching = moduleContext.getChannelID();
-//			Channel channel = (Channel) lm.getCPAObject(CPAObjectType.CHANNEL, strDisableCaching);
-//			traced.addCustomAttribute("Channel", channel.getChannelName());
-//			traced.addCustomAttribute("Party", channel.getParty());
-//			traced.addCustomAttribute("Service", channel.getService());
-//			traced.addCustomAttribute("Engine", channel.getEngineName());
-//		} catch (CPAChannelStoppedException e) {
-//		} catch (CPAException e) {
-//		}
 		
 		return Weaver.callOriginal();
 	}
