@@ -12,12 +12,24 @@ public class GatewayMessageConfig {
 	private String rolloverSize = "100K";
 	private int rolloverMinutes = 0;
 	private boolean enabled = true;
+	private boolean simulate = false;
 	
 	public GatewayMessageConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
-		File message_file = new File(newRelicDir, GatewayMonitor.DEFAULT_MESSAGE_FILE_NAME);
+		File message_file = new File(newRelicDir, GatewayLogger.DEFAULT_MESSAGE_FILE_NAME);
 		messageFile = message_file.getAbsolutePath();
 	}
+
+	
+	public boolean isSimulate() {
+		return simulate;
+	}
+
+
+	public void setSimulate(boolean simulate) {
+		this.simulate = simulate;
+	}
+
 
 	public String getMessageFile() {
 		return messageFile;
@@ -67,7 +79,7 @@ public class GatewayMessageConfig {
 		attributes.put("RollOverMinutes", rolloverMinutes);
 		attributes.put("ConfigurationType", "MessageLog");
 		attributes.put("Enabled", enabled);
-		
+		attributes.put("Simulate", simulate);
 		return attributes;
 	}
 

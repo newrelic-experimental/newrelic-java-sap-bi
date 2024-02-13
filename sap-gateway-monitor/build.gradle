@@ -22,6 +22,8 @@ jar {
     attributes 'Implementation-Vendor': 'New Relic Labs'
     attributes 'Implementation-Vendor-Id': 'com.newrelic.labs'
     attributes 'Implementation-Version': 1.0
+    attributes 'Class-Path': './LabsCustomLog4j-1.0.0.jar'
+    attributes 'Agent-Class': 'com.newrelic.instrumentation.sap.gateway.GateWayMonitorStartup'
   }
 }
 
