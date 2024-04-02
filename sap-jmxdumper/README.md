@@ -12,3 +12,4 @@ Mbean-Attributes1.out - contains a list of MBeans and their attributes.
 Mbean-Operations1.out - contains a list of MBeans and their operations (typically empty) and currently not implemented.    
    
 Use the contents of Mbean-Attributes1.out to populate sap-jmx.json.   
+
