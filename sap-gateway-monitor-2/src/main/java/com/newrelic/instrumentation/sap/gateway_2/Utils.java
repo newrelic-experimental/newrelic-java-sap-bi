@@ -7,12 +7,12 @@ public class Utils {
 	public static void init() {
 		if(initialized) return;
 		
-		if(!GatewayPublicMonitor.initialized) GatewayPublicMonitor.initialize();
+		if(!MPLMonitor.initialized) MPLMonitor.initialize();
 		
 	}
 	
 	public static void setGatewayIGWControllerMonitorInitialized() {
-		initialized = GatewayPublicMonitor.initialized;
+		initialized = MPLMonitor.initialized;
 	}
 	
 }
