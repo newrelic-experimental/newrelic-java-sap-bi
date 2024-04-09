@@ -11,12 +11,16 @@ public class CommunicationChannelConfig {
 	private int maxLogFiles = 3;
 	private String rolloverSize = "100K";
 	private int rolloverMinutes = 0;
-	private boolean enabled = true;
+	private boolean detailed_enabled = true;
+	private boolean summary_enabled = true;
+	private String summaryChannelLog = null;
 
 	public CommunicationChannelConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
 		File message_file = new File(newRelicDir, CommunicationChannelMonitor.log_file_name);
-		channelLog = message_file.getAbsolutePath();		
+		File summary_file = new File(newRelicDir,CommunicationChannelMonitor.summary_log_file_name);
+		channelLog = message_file.getAbsolutePath();	
+		summaryChannelLog = summary_file.getAbsolutePath();
 	}
 
 	public String getChannelLog() {
@@ -25,6 +29,14 @@ public class CommunicationChannelConfig {
 
 	public void setChannelLog(String channelLog) {
 		this.channelLog = channelLog;
+	}
+
+	public String getSummaryChannelLog() {
+		return summaryChannelLog;
+	}
+
+	public void setSummaryChannelLog(String summaryChannelLog) {
+		this.summaryChannelLog = summaryChannelLog;
 	}
 
 	public int getMaxLogFiles() {
@@ -51,12 +63,20 @@ public class CommunicationChannelConfig {
 		this.rolloverMinutes = rolloverMinutes;
 	}
 
-	public boolean isEnabled() {
-		return enabled;
+	public boolean isDetailedEnabled() {
+		return detailed_enabled;
+	}	
+
+	public boolean isSummaryEnabled() {
+		return summary_enabled;
+	}	
+
+	public void setDetailedEnabled(boolean enabled) {
+		this.detailed_enabled = enabled;
 	}
 
-	public void setEnabled(boolean enabled) {
-		this.enabled = enabled;
+	public void setSummaryEnabled(boolean enabled) {
+		this.summary_enabled = enabled;
 	}
 
 	@Override
@@ -67,7 +87,7 @@ public class CommunicationChannelConfig {
 		
 		CommunicationChannelConfig newConfig = (CommunicationChannelConfig)obj;
 		
- 		return newConfig.channelLog.equals(channelLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize) && newConfig.enabled == enabled;
+ 		return newConfig.channelLog.equals(channelLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize) && newConfig.detailed_enabled == detailed_enabled && newConfig.summaryChannelLog.equals(summaryChannelLog);
 	}
 	
 	public HashMap<String, Object> getCurrentSettings() {
@@ -77,7 +97,8 @@ public class CommunicationChannelConfig {
 		attributes.put("RollOverSize", rolloverSize);
 		attributes.put("RollOverMinutes", rolloverMinutes);
 		attributes.put("ConfigurationType", "MessageLog");
-		attributes.put("Enabled", enabled);
+		attributes.put("Enabled", detailed_enabled);
+		attributes.put("SummaryFileName", summaryChannelLog);
 		
 		return attributes;
 	}

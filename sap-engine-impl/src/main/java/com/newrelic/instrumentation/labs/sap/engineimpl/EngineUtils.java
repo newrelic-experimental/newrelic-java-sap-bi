@@ -11,6 +11,16 @@ import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 
 public class EngineUtils {
 	
+	public static ThreadLocal<Boolean> HEADERS_SET = new ThreadLocal<Boolean>() {
+
+		@Override
+		protected Boolean initialValue() {
+			return false;
+		}
+		
+		
+	};
+	
 	public static String TOKENKEY = "newrelicasynctoken";
 
 	public static void recordMessage(Map<String, Object> attributes, Message msg) {

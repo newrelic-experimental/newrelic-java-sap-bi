@@ -28,8 +28,6 @@ public abstract class ProcessingBlock {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
-//		Endpoint endpoint = message.getEndpoint();
-//		EngineUtils.addEndpoint(attributes, endpoint);
 		traced.addCustomAttributes(attributes);
 		return Weaver.callOriginal();
 	}

@@ -8,6 +8,7 @@ import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.newrelic.instrumentation.labs.sap.engine.EngineUtils;
+import com.newrelic.instrumentation.labs.sap.engine.HeadersUtil;
 
 @Weave(type=MatchType.Interface)
 public abstract class Connection {
@@ -22,7 +23,15 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
 		Weaver.callOriginal();
+		if(EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(false);
+		}
 	}
 
 	@Trace(dispatcher=true)
@@ -32,7 +41,15 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
 		Weaver.callOriginal();
+		if(EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(false);
+		}
 	}
 
 	@Trace(dispatcher=true)
@@ -42,7 +59,15 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
 		Weaver.callOriginal();
+		if(EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(false);
+		}
 	}
 
 	@Trace(dispatcher=true)
@@ -52,7 +77,15 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
 		Weaver.callOriginal();
+		if(EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(false);
+		}
 	}
 
 	@Trace(dispatcher=true)
@@ -62,7 +95,15 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
 		Weaver.callOriginal();
+		if(EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(false);
+		}
 	}
 
 	@Trace(dispatcher=true)
@@ -72,7 +113,20 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
-		return Weaver.callOriginal();
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
+		Message reply = Weaver.callOriginal();
+		if(EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(false);
+		}
+		if(reply != null) {
+			HeadersUtil.getHeaders(reply);
+			HeadersUtil.dumpHeaders(reply);
+		}
+		return reply;
 	}
 
 	@Trace(dispatcher=true)
@@ -82,7 +136,17 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
-		return Weaver.callOriginal();
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
+		Message reply = Weaver.callOriginal();
+		if(reply != null) {
+			HeadersUtil.getHeaders(reply);
+			HeadersUtil.dumpHeaders(reply);
+		}
+		return reply;
 	}
 
 	@Trace(dispatcher=true)
@@ -92,7 +156,20 @@ public abstract class Connection {
 		EngineUtils.addMessage(attributes, message);
 		MessageKey msgKey = message.getMessageKey();
 		EngineUtils.addMessageKey(attributes, msgKey);
-		return Weaver.callOriginal();
+		if(!EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(true);
+			HeadersUtil.addHeaders(message);
+			HeadersUtil.dumpHeaders(message);
+		}
+		Message reply = Weaver.callOriginal();
+		if(EngineUtils.HEADERS_SET.get()) {
+			EngineUtils.HEADERS_SET.set(false);
+		}
+		if(reply != null) {
+			HeadersUtil.getHeaders(reply);
+			HeadersUtil.dumpHeaders(reply);
+		}
+		return reply;
 	}
 
 }

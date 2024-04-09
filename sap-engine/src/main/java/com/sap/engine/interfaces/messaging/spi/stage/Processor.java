@@ -21,10 +21,6 @@ public abstract class Processor {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","Processor",getClass().getSimpleName(),"processMessage");
 		Map<String, Object> attributes = new HashMap<String, Object>();
 		EngineUtils.addMessage(attributes, message);
-//		Endpoint endpoint = message.getEndpoint();
-//		if(endpoint != null) {
-//			EngineUtils.addEndpoint(attributes, endpoint);
-//		}
 		NewRelic.getAgent().getTracedMethod().addCustomAttributes(attributes);
 		Weaver.callOriginal();
 	}
