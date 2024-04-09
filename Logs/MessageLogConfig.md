@@ -7,7 +7,8 @@ The configuration for which fields to log is contained in the file saploggingcon
 The configuration file contains five different JSON configuration items.  Some of the configuration item names end with _all.   These represent items which can produce multiple items.  They are followed in the configuration file by the fields that it can produce.  If the _all item is set to true then the other items are ignored and all of them are reported.  To only report selected items, set the _all item to false and set the items you want to true.   For example, there are to and from for both Party and Service available for messages.  Both have both a name and a type associated with them.   If _all is set to true then both the name and the type will be written to the log.  To only write the name, set _all to false and name to true.
 The five different types of configurations are: MessageStatus, ErrorCode, Message, TransportableMessage and QueueMessage.  Each of these has a JSON Object associated with it that ends with -Config.
 #### Note ####
-If the value of the item is not defined (null) or empty (zero length string), it will not be written to the log.
+If the value of the item is not defined (null) or empty (zero length string), it will not be written to the log.   
+**Note that a template of saploggingconfig.json is included in this directory.**
   
 ### MessageStatus ###
 status - set to true to write message status to the log for all messages.  Default value is true  
