@@ -14,7 +14,11 @@ The configuration stanza will look like this:
 &nbsp;&nbsp;SAP:   
 &nbsp;&nbsp;&nbsp;&nbsp;*loggingcomponent*:   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*setting*: *value*
-  
+
+## Example Configuration ##
+The following screenshot shows an example configuration in newrelic.yml    
+<img width="1254" alt="image" src="https://github.com/newrelic-experimental/newrelic-java-sap-bi/assets/8822859/9fc2176a-00f1-478e-9312-fd2b00f50438">
+
 ## Audit Log Component ##
 This component will replicate the entries that SAP collects in the Audit Log.  
 ### Settings ###
