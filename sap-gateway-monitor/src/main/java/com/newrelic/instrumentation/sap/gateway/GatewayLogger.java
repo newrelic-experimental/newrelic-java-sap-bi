@@ -38,14 +38,12 @@ public class GatewayLogger {
 	private static ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 	
 	protected static void checkSimulate(GatewayMessageConfig gConfig) {
+		if(simulate == null) {
+			simulate = new Simulate();
+		}
 		boolean newSimulated = gConfig.isSimulate();
 		NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Call to checkSimulate, simulated = {0}, newsimulated = {1}",simulated,newSimulated);
 		if(simulated != newSimulated) {
-			
-			if(simulate == null) {
-				
-				simulate = LoadSAPMPLClasses.loadClassesForSimulate();
-			}
 			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "New value of simulate is different");
 			if(simulated) {
 				NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Simulate is running, will attempt to stop");
