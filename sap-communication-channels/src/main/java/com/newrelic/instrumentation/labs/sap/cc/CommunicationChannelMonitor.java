@@ -10,16 +10,16 @@ import java.util.concurrent.TimeUnit;
 import com.newrelic.agent.config.AgentConfig;
 import com.newrelic.agent.config.AgentConfigListener;
 import com.newrelic.agent.config.ConfigFileHelper;
-import com.newrelic.agent.deps.org.apache.logging.log4j.Level;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.LoggerContext;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.Configurator;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.api.AppenderComponentBuilder;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.api.ComponentBuilder;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilder;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.api.LayoutComponentBuilder;
-import com.newrelic.agent.deps.org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
-import com.newrelic.agent.deps.org.apache.logging.log4j.spi.ExtendedLogger;
+import com.newrelic.labs.log4j.Level;
+import com.newrelic.labs.log4j.core.LoggerContext;
+import com.newrelic.labs.log4j.core.config.Configurator;
+import com.newrelic.labs.log4j.core.config.builder.api.AppenderComponentBuilder;
+import com.newrelic.labs.log4j.core.config.builder.api.ComponentBuilder;
+import com.newrelic.labs.log4j.core.config.builder.api.ConfigurationBuilder;
+import com.newrelic.labs.log4j.core.config.builder.api.ConfigurationBuilderFactory;
+import com.newrelic.labs.log4j.core.config.builder.api.LayoutComponentBuilder;
+import com.newrelic.labs.log4j.core.config.builder.impl.BuiltConfiguration;
+import com.newrelic.labs.log4j.spi.ExtendedLogger;
 import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.Config;
 import com.newrelic.api.agent.Logger;
@@ -45,12 +45,14 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 	protected static final String CHANNELLOGROLLOVERSIZE2 = "SAP.communicationlog.log_file_size";
 	protected static final String CHANNELLOGMAXFILES = "SAP.communicationlog.log_file_count";
 	protected static final String CHANNELSLOGENABLED = "SAP.communicationlog.enabled";
+	protected static final String CHANNELSSUMMARYLOGENABLED = "SAP.communicationlog.summarylog_enabled";
 	public static final String log_file_name = "communicationchannels.log";
 	public static final String summary_log_file_name = "channelsummary.log";
 	private static LoggerContext logging_ctx = null;
 	private static CommunicationChannelConfig currentChannelConfig = null;
 	private static CommunicationChannelMonitor INSTANCE = null;
-	private static boolean enabled = true;
+	private static boolean detailed_enabled = true;
+	private static boolean summary_enabled = true;
 
 	@SuppressWarnings("rawtypes")
 	public static void init() {
@@ -72,7 +74,7 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 					NewRelic.getAgent().getInsights().recordCustomEvent("CommunicationChannelConfig", currentChannelConfig.getCurrentSettings());
 				}
 
-				enabled = currentChannelConfig.isEnabled();
+				detailed_enabled = currentChannelConfig.isDetailedEnabled();
 
 				ConfigurationBuilder<BuiltConfiguration> cc_builder = ConfigurationBuilderFactory.newConfigurationBuilder();
 				cc_builder.setStatusLevel(Level.INFO);
@@ -214,7 +216,7 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 		}
 
 		boolean enabled = agentConfig.getValue(CHANNELSLOGENABLED, Boolean.TRUE);
-		channelConifg.setEnabled(enabled);
+		channelConifg.setDetailedEnabled(enabled);
 		
 		String summary = agentConfig.getValue(SUMMARYCHANNELLOGFILENAME);
 		if(summary != null && !summary.isEmpty()) {
@@ -229,13 +231,12 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 	public void run() {
 
 		Logger logger = NewRelic.getAgent().getLogger();
-		if(!enabled) {
+		if(!detailed_enabled) {
 			logger.log(java.util.logging.Level.FINE, "Communication Channel Monitoring is disabled, skipping monitoring");
 			return;
 		}
 
 		long now = System.currentTimeMillis();
-		logger.log(java.util.logging.Level.FINE, "Communication Channel Monitor start, now: {0}, lastColletion: {1}",now, lastCollection);
 
 		if(!initialized) {
 			init();
@@ -279,44 +280,7 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, e, "Failed to report communication channels due to CPAException");
 		}
 
-
-		//		LookupManager lookupMgr = LookupManager.getInstance();
-		//
-		//		try {
-		//			LinkedList<Channel> channelList = lookupMgr.getAllCPAObjects(CPAObjectType.CHANNEL);
-		//			for(Channel channel : channelList) {
-		//				String channelId = channel.getObjectId();
-		//				for(SAP_ITSAMXIAdapterChannelService_Impl channelService : channelServices) {
-		//					SAP_ITSAMXIAdapterChannelList clist = channelService.RetrieveChannels(new String[] {channelId}, "DETAIL", Locale.getDefault().getLanguage());
-		//					if(clist != null) {
-		//						SAP_ITSAMXIAdapterChannel[] listOfChannels = clist.getChannelList();
-		//						for(SAP_ITSAMXIAdapterChannel aChannel : listOfChannels) {
-		//							SAP_ITSAMXIAdapterChannelClusterData[] clusterData = aChannel.getClusterDetails();null
-		//							if(clusterData != null) {
-		//								for(SAP_ITSAMXIAdapterChannelClusterData cData : clusterData) {
-		//									SAP_ITSAMXIAdapterChannelProcessingData[] processingDetails = cData.getProcessingDetails();
-		//									for(SAP_ITSAMXIAdapterChannelProcessingData pData : processingDetails) {
-		//										Date timestamp = pData.getTimestamp();
-		//										if(timestamp != null) {
-		//											long ts = timestamp.getTime();
-		//											if(ts >= lastCollection && ts < now) {
-		//												report(aChannel, cData, pData);
-		//												count++;
-		//											}
-		//										}
-		//									}
-		//								}
-		//							}
-		//						}
-		//					}
-		//				}
-		//			}
-		//		} catch (CPAException e) {
-		//			logger.log(Level.FINE, e, "Error getting channel list");
-		//		}
-
 		lastCollection = now;
-		logger.log(java.util.logging.Level.FINE, "Last collection set to {0}", lastCollection);
 
 	}
 
@@ -502,7 +466,8 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 	private static class SummaryFileLogger implements Runnable {
 
 		public void run() {
-			NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Call to SummaryFileLogger.run");
+			if(!summary_enabled) return;
+			
 			try {
 				String[] channelIds = XIAdapterChannelUtil.getAllChannelIds();
 				SAP_ITSAMXIAdapterChannelList channelList = XIAdapterChannelUtil.getChannelDetails("ID", true, null, channelIds, null);
@@ -584,7 +549,6 @@ public class CommunicationChannelMonitor implements Runnable, AgentConfigListene
 							sb.append("ClusterData: No Cluster Data");
 						}
 						String result = sb.toString();
-						NewRelic.getAgent().getLogger().log(java.util.logging.Level.FINE, "Writing summary to log: {0}", result);
 					
 						SUMMARYLOGGER.log(Level.INFO, result);
 					}

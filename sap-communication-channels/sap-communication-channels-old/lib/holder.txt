@@ -1,5 +1,0 @@
-com.sap.tc.cmi_api.jar
-com.sap.xi.mdt.itsam.lib.jar
-cpa_svc_api-1.0.0.jar
-sap.com~tc~lm~itsam~co~ui~xi~channel~wd.jar
-sap.com~tc~lm~itsam~ui~proxy.jar
