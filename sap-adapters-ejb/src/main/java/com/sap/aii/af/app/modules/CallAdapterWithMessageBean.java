@@ -24,17 +24,12 @@ public abstract class CallAdapterWithMessageBean {
 		String adapterType = channel.getAdapterType();
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName("Custom","SAP",adapterType,"Adapters","Channel","Receiver",adapterType);
-		
+
 		return Weaver.callOriginal();
 	}
 	
 	@Trace(dispatcher=true)
 	private Message process_sender(Connection connection, ModuleContext moduleContext, Message msMessage) {
-		SAPMessageHeaders headers = new SAPMessageHeaders(msMessage);
-		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
-		traced.setMetricName("Custom","SAP","Adapters","Channel","Sender",connection.getName());
-		
 		return Weaver.callOriginal();
 	}
 }
