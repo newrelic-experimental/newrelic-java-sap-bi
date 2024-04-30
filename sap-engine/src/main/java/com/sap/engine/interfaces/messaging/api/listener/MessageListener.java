@@ -9,7 +9,6 @@ import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.newrelic.instrumentation.labs.sap.engine.EngineUtils;
-import com.newrelic.instrumentation.labs.sap.engine.NRMessageHeaders;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 
@@ -25,14 +24,6 @@ public abstract class MessageListener {
 		EngineUtils.addMessageKey(attributes, msgKey);
 		traced.addCustomAttributes(attributes);
 		traced.setMetricName("Custom","SAP","MessageListener",getClass().getSimpleName(),"onMessage");
-		if(!EngineUtils.HEADERS_SET.get()) {
-			NRMessageHeaders headers = new NRMessageHeaders();
-			NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-			headers.populateOutboundHeaders(message);
-		}
 		Weaver.callOriginal();
-		if(EngineUtils.HEADERS_SET.get()) {
-			EngineUtils.HEADERS_SET.set(false);
-		}
 	}
 }
