@@ -8,7 +8,6 @@ import com.newrelic.api.agent.TransportType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.newrelic.instrumentation.labs.sap.engineimpl.EngineUtils;
-import com.newrelic.instrumentation.labs.sap.engineimpl.HeadersUtil;
 import com.newrelic.instrumentation.labs.sap.engineimpl.NRTransportHeaders;
 import com.newrelic.instrumentation.labs.sap.engineimpl.NRTransportMessageHeaders;
 import com.sap.engine.interfaces.messaging.api.Message;
@@ -36,7 +35,6 @@ public abstract class ServicesImpl {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","send");
 		NRTransportMessageHeaders headers = new NRTransportMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-		HeadersUtil.dumpHeaders(message);
 		Weaver.callOriginal();
 	}
 
@@ -50,7 +48,6 @@ public abstract class ServicesImpl {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","store");
 		NRTransportMessageHeaders headers = new NRTransportMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-		HeadersUtil.dumpHeaders(message);
 		Weaver.callOriginal();
 	}
 
@@ -64,7 +61,6 @@ public abstract class ServicesImpl {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","trigger");
 		NRTransportMessageHeaders headers = new NRTransportMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-		HeadersUtil.dumpHeaders(message);
 		Weaver.callOriginal();
 	}
 
@@ -78,11 +74,9 @@ public abstract class ServicesImpl {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","call");
 		NRTransportMessageHeaders headers = new NRTransportMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-		HeadersUtil.dumpHeaders(message);
 		TransportableMessage resultMessage = Weaver.callOriginal();
 		NRTransportMessageHeaders inHeaders = new NRTransportMessageHeaders(resultMessage);
 		NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Other, inHeaders);
-		HeadersUtil.dumpHeaders(message);
 		return resultMessage;
 	}
 
@@ -96,7 +90,6 @@ public abstract class ServicesImpl {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","receive");
 		NRTransportMessageHeaders inHeaders = new NRTransportMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Other, inHeaders);
-		HeadersUtil.dumpHeaders(message);
 		Weaver.callOriginal();
 	}
 
@@ -110,11 +103,9 @@ public abstract class ServicesImpl {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","request");
 		NRTransportMessageHeaders headers = new NRTransportMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-		HeadersUtil.dumpHeaders(message);
 		TransportableMessage resultMessage = Weaver.callOriginal();
 		NRTransportMessageHeaders inHeaders = new NRTransportMessageHeaders(resultMessage);
 		NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Other, inHeaders);
-		HeadersUtil.dumpHeaders(message);
 		return resultMessage;
 	}
 
@@ -126,11 +117,6 @@ public abstract class ServicesImpl {
 			NewRelic.getAgent().getTracedMethod().addCustomAttributes(attributes);
 		}
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","deliver");
-		if(!EngineUtils.HEADERS_SET.get()) {
-			EngineUtils.HEADERS_SET.set(true);
-			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
-		}
 		Weaver.callOriginal();
 	}
 
@@ -154,7 +140,6 @@ public abstract class ServicesImpl {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","Services","transmit");
 		NRTransportMessageHeaders headers = new NRTransportMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(headers);
-		HeadersUtil.dumpHeaders(message);
 		TransportPackage resultPackage =  Weaver.callOriginal();
 		NRTransportHeaders inHeaders = new NRTransportHeaders(resultPackage.getHeaders());
 		NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Other, inHeaders);

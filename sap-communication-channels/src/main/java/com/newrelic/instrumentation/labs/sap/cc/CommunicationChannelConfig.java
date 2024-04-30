@@ -17,8 +17,8 @@ public class CommunicationChannelConfig {
 
 	public CommunicationChannelConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
-		File message_file = new File(newRelicDir, CommunicationChannelMonitor.log_file_name);
-		File summary_file = new File(newRelicDir,CommunicationChannelMonitor.summary_log_file_name);
+		File message_file = new File(newRelicDir, CommunicationChannelLogger.log_file_name);
+		File summary_file = new File(newRelicDir,CommunicationChannelLogger.summary_log_file_name);
 		channelLog = message_file.getAbsolutePath();	
 		summaryChannelLog = summary_file.getAbsolutePath();
 	}
