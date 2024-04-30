@@ -36,6 +36,7 @@ public class Utils {
 			parser = (DefaultDatabaseStatementParser)dbService.getDatabaseStatementParser();
 			initialized  = true;
 		}
+		vendor = new SAPDBVendor();
 	}
 	
 	private static String getSAPHost(String url) {
@@ -176,8 +177,11 @@ public class Utils {
 		}
 
 		if(initialized) {
-			ParsedDatabaseStatement statement = parser.getParsedDatabaseStatement(vendor, sql, null);
-			return statement;
+			
+			if (vendor != null && sql != null) {
+				ParsedDatabaseStatement statement = parser.getParsedDatabaseStatement(vendor, sql, null);
+				return statement;
+			}
 		}
 
 		return null;

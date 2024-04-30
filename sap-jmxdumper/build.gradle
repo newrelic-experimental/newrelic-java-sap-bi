@@ -1,9 +1,5 @@
 
-<<<<<<<< HEAD:sap-jmxdumper/build.gradle
 // Build.gradle generated for instrumentation module sap-jmxdumper
-========
-// Build.gradle generated for instrumentation module sap-appnaming
->>>>>>>> main:sap-appnaming/build.gradle
 
 apply plugin: 'java'
 
@@ -22,11 +18,7 @@ dependencies {
 
 jar {
   manifest {
-<<<<<<<< HEAD:sap-jmxdumper/build.gradle
     attributes 'Implementation-Title': 'com.newrelic.instrumentation.labs.sap-jmxdumper'
-========
-    attributes 'Implementation-Title': 'com.newrelic.instrumentation.labs.sap-appnaming'
->>>>>>>> main:sap-appnaming/build.gradle
     attributes 'Implementation-Vendor': 'New Relic Labs'
     attributes 'Implementation-Vendor-Id': 'com.newrelic.labs'
     attributes 'Implementation-Version': 1.0
