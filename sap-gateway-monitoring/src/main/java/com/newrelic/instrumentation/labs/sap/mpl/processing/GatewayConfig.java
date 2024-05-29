@@ -1,4 +1,4 @@
-package com.newrelic.instrumentation.labs.sap.mpl;
+package com.newrelic.instrumentation.labs.sap.mpl.processing;
 
 import java.io.File;
 import java.util.HashMap;
@@ -51,10 +51,6 @@ public class GatewayConfig {
 		this.rolloverMinutes = rolloverMinutes;
 	}
 
-	public boolean isDetailedEnabled() {
-		return gateway_enabled;
-	}	
-
 	@Override
 	public boolean equals(Object obj) {
 		if(obj == null) return false;
@@ -62,7 +58,6 @@ public class GatewayConfig {
 		if(!(obj instanceof GatewayConfig)) return false;
 		
 		GatewayConfig newConfig = (GatewayConfig)obj;
-		
  		return newConfig.gatewayLog.equals(gatewayLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize) && newConfig.gateway_enabled == gateway_enabled;
 	}
 	

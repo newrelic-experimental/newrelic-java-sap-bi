@@ -1,4 +1,4 @@
-package com.newrelic.instrumentation.labs.sap.mpl;
+package com.newrelic.instrumentation.labs.sap.tracemessage.processing;
 
 import java.util.TimerTask;
 
@@ -6,7 +6,7 @@ public class NRLabsTimerTask extends TimerTask {
 
 	@Override
 	public void run() {
-		GatewayLogger.checkConfig();
+		TraceMessageLogger.checkConfig();
 	}
 
 }
