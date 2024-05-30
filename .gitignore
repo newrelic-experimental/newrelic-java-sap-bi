@@ -8,3 +8,5 @@ bin
 .project
 */lib/*.jar
 .DS_Store
+libs
+.gradle
