@@ -1,5 +1,5 @@
 
-// Build.gradle generated for instrumentation module sap-aii-af
+// Build.gradle generated for instrumentation module sap-gw-tracer-monitoring
 
 apply plugin: 'java'
 
@@ -8,14 +8,17 @@ dependencies {
    // Example:
    // implementation 'javax.servlet:servlet-api:2.5'
 
-   implementation fileTree(include: ['*.jar'], dir: '../libs')
+   // New Relic Labs Java Agent dependencies
+   implementation 'com.newrelic.agent.java:newrelic-agent:7.4.0'
+   implementation 'com.newrelic.agent.java:newrelic-api:7.4.0'
    implementation fileTree(include: ['*.jar'], dir: 'lib')
+   implementation fileTree(include: ['*.jar'], dir: '../libs')
    implementation fileTree(include: ['*.jar'], dir: '../test-lib')
 }
 
 jar {
   manifest {
-    attributes 'Implementation-Title': 'com.newrelic.instrumentation.labs.sap-aii-af'
+    attributes 'Implementation-Title': 'com.newrelic.instrumentation.labs.sap-gw-tracer-monitoring'
     attributes 'Implementation-Vendor': 'New Relic Labs'
     attributes 'Implementation-Vendor-Id': 'com.newrelic.labs'
     attributes 'Implementation-Version': 1.0

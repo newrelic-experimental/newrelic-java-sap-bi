@@ -21,6 +21,7 @@ public class CommunicationChannelPreMain {
 	public static void init() {
 		if(!isSAP()) {
 			NewRelic.getAgent().getLogger().log(Level.FINE, "Skipping Communication Channel logging, application does not appear to be SAP");
+			return;
 		}
 		NewRelic.getAgent().getLogger().log(Level.FINE, "Call to initialize Communcation Channel Logging");
 		

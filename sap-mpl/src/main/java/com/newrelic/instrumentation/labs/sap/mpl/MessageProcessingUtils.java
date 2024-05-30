@@ -3,24 +3,14 @@ package com.newrelic.instrumentation.labs.sap.mpl;
 import java.util.Date;
 import java.util.Map;
 
-import org.apache.camel.Endpoint;
-
 import com.sap.it.op.mpl.MessageProcessingLogPart;
 import com.sap.it.op.mpl.TypedMessageProcessingLogKeys;
 
-public class GatewayUtils {
+public class MessageProcessingUtils {
 
 	public static void addAttribute(Map<String, Object> attributes, String key, Object value) {
 		if(value != null && attributes != null && key != null && !key.isEmpty()) {
 			attributes.put(key, value);
-		}
-	}
-	
-	public static void addEndpoint(Map<String,Object> attributes, Endpoint endpoint) {
-		
-		if(endpoint != null) {
-			addAttribute(attributes, "EndpointUri", endpoint.getEndpointUri());
-			addAttribute(attributes, "EndpointKey", endpoint.getEndpointKey());
 		}
 	}
 	
@@ -46,7 +36,7 @@ public class GatewayUtils {
 		
 		String result = sb.toString();
 		if(!result.isEmpty()) {
-			GatewayLogger.log(result);
+			MessageProcessingLogger.log(result);
 		}
 	}
 	
