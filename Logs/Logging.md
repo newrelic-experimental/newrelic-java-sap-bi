@@ -60,4 +60,26 @@ This component will produce two different logs regarding information on the comm
 | log_file_count | Integer - Number of archive log files to keep | 3 |
 
 #### Notes ####
-The rolling file attributes are common to both the detailed and summary logs    
+The rolling file attributes are common to both the detailed and summary logs   
+
+## Gateway Logs ##
+This consists of three components to produce logs related to making calls via the SAP Gateway framework.  It produces two gateway logs with one being more detailed than the other.  The third is the trace message log which will produce a log of trace data that is produced if tracing is enabled.  The component name is gatewaylog.   
+
+### Settings ###
+| Setting | Description | Default Value |
+| ------- | ----------- | ------------- |
+| log_file_name | String - full path that is used to create and write the gateway log | gateway.log in the New Relic Agent directory |
+| mpllog_file_name |String - full path that is used to create and write the message processing log | messageprocessing.log in the New Relic Agent directory |
+| tracelog_file_name | String - full path that is used to create and write to the trace message log file | tracemessage.log in the New Relic Agent directory |
+| log_file_interval | Integer - number of minutes between rolling the log file | 60 minutes (1 hour) |
+| log_size_limit | String - Size indentifer decrribed above | 100 KB |
+| log_file_count | Integer - Number of archive log files to keep | 3 |
+   
+Each of the logs can be enabled or disabled via a setting under the SAP stanza.  If not defined the default value is true.   
+&nbsp;&nbsp;SAP:   
+&nbsp;&nbsp;&nbsp;&nbsp;gatewaylog:   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enabled: *true or false*   
+&nbsp;&nbsp;&nbsp;&nbsp;messageprocessinglog:   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enabled: *true or false*   
+&nbsp;&nbsp;&nbsp;&nbsp;tracemessagelog:   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enabled: *true or false*   
