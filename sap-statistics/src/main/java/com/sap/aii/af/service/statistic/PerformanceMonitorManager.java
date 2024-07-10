@@ -1,12 +1,10 @@
 package com.sap.aii.af.service.statistic;
 
-import java.sql.Timestamp;
-import java.util.HashMap;
-
+import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.sap.aii.af.service.statistic.impl.PerformanceAccumulatorObject;
+import com.newrelic.instrumentation.labs.sap.stats.MessageStats;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 
 @Weave
@@ -16,42 +14,24 @@ public abstract class PerformanceMonitorManager {
 		return Weaver.callOriginal();
 	}
 	
-	public static boolean ACTIVE = Weaver.callOriginal();
-	
-	public abstract HashMap<PerformanceAccumulatorObject, PerformanceAccumulatorObject> getPerformanceAccumulatorMap();
-	
-
-	public IPerformanceCollectorData getPerformanceCollectorData(MessageKey messageKey, boolean startImplicit) throws ProfileException {
-		IPerformanceCollectorData result = Weaver.callOriginal();
-		return result;
-	}
-	
-	public PerformanceAccumulatorObject[] getPerformanceData(PeriodType periodType, Timestamp selectionBeginTime,
-			Timestamp selectionEndTime, boolean strictPeriodStartEndCheck)
-			throws ProfileException, ClusterCommunicationException {
-		PerformanceAccumulatorObject[] result = Weaver.callOriginal();
-		return result;
-	}
-	
-	public abstract IPeriod[] getProfilePeriods();
-	
-	@Trace
-	public void start(MessageKey messageKey) {
-		Weaver.callOriginal();
-	}
-	
-	@Trace
-	public void startAggregator(boolean force, Timestamp startTime, boolean dumpOpenIntervals, boolean skipDataDeletion) {
-		Weaver.callOriginal();
-	}
+	public abstract IPerformanceCollectorData getPerformanceCollectorData(MessageKey messageKey);
 	
 	@Trace
 	public void stop(MessageKey messageKey) {
+		NewRelic.incrementCounter("Custom/PerformanceMonitorManager/stop/Calls");
 		Weaver.callOriginal();
 	}
 	
 	@Trace
 	public void cancel(MessageKey messageKey) {
+		NewRelic.incrementCounter("Custom/PerformanceMonitorManager/cancel/Calls");
 		Weaver.callOriginal();
+	}
+	
+	@Trace
+	private void updateAccumulationCache(IPerformanceCollectorData iPerformanceCollectorData) {
+		NewRelic.incrementCounter("Custom/PerformanceMonitorManager/updateAccumulationCache/Calls");
+		Weaver.callOriginal();
+		MessageStats.reportPerformanceCollectorData(iPerformanceCollectorData,"PerformanceMonitorManager-updateAccumulationCache");
 	}
 }

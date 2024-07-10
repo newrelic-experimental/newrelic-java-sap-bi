@@ -24,9 +24,10 @@ public class MessageStats  {
 		reportObject(attributes, "Agent-InstanceName", instanceId);
 	}
 
-	public static void reportPerformanceCollectorData(IPerformanceCollectorData data) {
+	public static void reportPerformanceCollectorData(IPerformanceCollectorData data, String source) {
 		Insights insights = NewRelic.getAgent().getInsights();
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
+		reportObject(attributes, "Source", source);
 		reportObject(attributes,"ActionName", data.getActionName());
 		reportObject(attributes,"CreationTimestamp", data.getCreationTimestamp());
 		reportObject(attributes,"DeliverySemantics", data.getDeliverySemantics());
@@ -48,6 +49,7 @@ public class MessageStats  {
 		reportObject(attributes,"ToServiceName", data.getToServiceName());
 		reportObject(attributes,"IsLoopback", data.isLoopback());
 		reportObject(attributes,"IsSyncResponse", data.isSyncResponse());
+		reportObject(attributes, "isTimePeriodCalculationFinalize", data.isTimePeriodCalculationFinalize());
 		if(data.hasIMeasuringPoints()) {
 			ArrayList<IMeasuringPoint> measuringPts = data.getMeasuringPoints();
 			int size = measuringPts.size();

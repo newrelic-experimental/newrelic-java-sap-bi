@@ -18,19 +18,9 @@ public abstract class PerformanceDataCache {
 	
 	public abstract HashMap<MessageKey, IPerformanceCollectorData> getCompleteMemoryCache();
 	
-	public void cleanCache() {
-		NewRelic.incrementCounter("Custom/PerformanceDataCache/cleanCache/Calls");
-		Weaver.callOriginal();
-	}
-	
-	public void cleanMemCache() {
-		NewRelic.incrementCounter("Custom/PerformanceDataCache/cleanMemCache/Calls");
-		Weaver.callOriginal();
-	}
-	
 	protected boolean removeCacheEntry(IPerformanceCollectorData entry) {
 		NewRelic.incrementCounter("Custom/PerformanceDataCache/removeCacheEntry/Calls");
-		MessageStats.reportPerformanceCollectorData(entry);
+		MessageStats.reportPerformanceCollectorData(entry, "PerformanceDataCache-removeCacheEntry");
 		return Weaver.callOriginal();
 	}
 	
@@ -43,7 +33,7 @@ public abstract class PerformanceDataCache {
 	private IPerformanceCollectorData swapIn(MessageKey messageKey) {
 		NewRelic.incrementCounter("Custom/PerformanceDataCache/swapIn/Calls");
 		IPerformanceCollectorData returned = Weaver.callOriginal();
-		MessageStats.reportPerformanceCollectorData(returned);
+		MessageStats.reportPerformanceCollectorData(returned, "PerformanceDataCache-swapIn");
 		return returned;
 	}
 	
