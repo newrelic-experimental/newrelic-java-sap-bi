@@ -29,6 +29,8 @@ public class MessageStats  {
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
 		reportObject(attributes, "Source", source);
 		reportObject(attributes,"ActionName", data.getActionName());
+		reportObject(attributes, "ActionType", data.getActionType());
+		reportObject(attributes, "AllInOneObjectID", data.getAllInOneObjectID());
 		reportObject(attributes,"CreationTimestamp", data.getCreationTimestamp());
 		reportObject(attributes,"DeliverySemantics", data.getDeliverySemantics());
 		reportObject(attributes,"FromPartyName", data.getFromPartyName());
@@ -41,6 +43,7 @@ public class MessageStats  {
 		}
 		reportObject(attributes,"MessageSize", data.getMessageSize());
 		reportObject(attributes,"ReceiverAction", data.getReceiverActionName());
+		reportObject(attributes,"ReceiverActionType", data.getReceiverActionType());
 		reportObject(attributes,"RefToMessageID", data.getRefToMessageID());
 		reportObject(attributes,"SentReceiveTimestamp", data.getSentReceiveTimestamp());
 		reportObject(attributes,"TransDeliveryTimestamp", data.getTransDeliveryTimestamp());
