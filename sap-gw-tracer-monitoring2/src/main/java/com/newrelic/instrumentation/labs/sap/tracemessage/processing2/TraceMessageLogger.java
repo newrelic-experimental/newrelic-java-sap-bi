@@ -1,4 +1,4 @@
-package com.newrelic.instrumentation.labs.sap.tracemessage.processing;
+package com.newrelic.instrumentation.labs.sap.tracemessage.processing2;
 
 import java.io.File;
 import java.io.IOException;
@@ -204,6 +204,7 @@ public class TraceMessageLogger implements HarvestListener {
 			TRACEMESSAGE_LOGGER.setLevel(Level.INFO);
 		}
 
+
 		Handler[] handlers = TRACEMESSAGE_LOGGER.getHandlers();
 		if(handlers.length == 0) {
 			if(handler != null) {
@@ -269,7 +270,7 @@ public class TraceMessageLogger implements HarvestListener {
 			size =  10 * 1024L;
 		}
 
-		String tracemessageFileName = currentTracelogConfig.getTraceMessageLog();
+		String tracemessageFileName = currentTracelogConfig.getTraceMessageLog() + "2";
 		File file = new File(tracemessageFileName);
 		File parent = file.getParentFile();
 
