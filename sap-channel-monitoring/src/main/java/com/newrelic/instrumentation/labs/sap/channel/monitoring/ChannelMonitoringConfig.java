@@ -105,4 +105,7 @@ public class ChannelMonitoringConfig {
 		return attributes;
 	}
 
+	public boolean isIntervalChangeOnly(ChannelMonitoringConfig newConfig ) {
+ 		return newConfig.channelLog.equals(channelLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize) && newConfig.enabled == enabled && newConfig.collection_period != collection_period;
+	}
 }

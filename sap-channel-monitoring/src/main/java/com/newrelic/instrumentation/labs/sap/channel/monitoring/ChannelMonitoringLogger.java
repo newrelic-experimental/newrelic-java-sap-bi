@@ -27,13 +27,13 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 	public static final String log_file_name = "channels.log";
 	public static final String state_log_name = "channel-state.log";
 	private static ChannelMonitoringConfig currentChannelConfig = null;
-	
+
 	private static ChannelMonitoringLogger INSTANCE = null;
 	private static NRLabsHandler channelsHandler;
 	private static NRLabsHandler statesHandler;
-	
+
 	private ChannelMonitoringLogger() {
-		
+
 	}
 
 	protected static ChannelMonitoringConfig getConfig() {
@@ -48,7 +48,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 		}
 		CHANNELSLOGGER.log(Level.INFO, message);
 	}
-	
+
 	protected static void logToStateLog(String message) {
 		if(!initialized) {
 			init();
@@ -57,9 +57,11 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 	}
 
 	public static void init() {
-		if(INSTANCE == null) {
-			INSTANCE = new ChannelMonitoringLogger();
-			ServiceFactory.getConfigService().addIAgentConfigListener(INSTANCE);
+		synchronized(INSTANCE) {
+			if(INSTANCE == null) {
+				INSTANCE = new ChannelMonitoringLogger();
+				ServiceFactory.getConfigService().addIAgentConfigListener(INSTANCE);
+			}
 		}
 		if(currentChannelConfig == null) {
 			Config agentConfig = NewRelic.getAgent().getConfig();
@@ -81,7 +83,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 				sb.append(c);
 			}
 		}
-		
+
 		long size = Long.parseLong(sb.toString());
 		char end = rolloverSize.charAt(length-1);
 		switch (end) {
@@ -95,7 +97,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 			size *= 1024L*1024L*1024L;
 			break;
 		}
-		
+
 		// disallow less than 10K
 		if(size < 10 * 1024L) {
 			size =  10 * 1024L;
@@ -124,7 +126,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 		}
 
 		int maxFiles = currentChannelConfig.getMaxLogFiles();
-		
+
 		// If we have already initialized the handler then perform cleanup
 		if(channelsHandler != null) {
 			channelsHandler.flush();
@@ -157,7 +159,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 		if(CHANNELSLOGGER != null && channelsHandler != null) {
 			CHANNELSLOGGER.addHandler(channelsHandler);
 		}
-		
+
 		if(statesHandler != null) {
 			statesHandler.flush();
 			statesHandler.close();
@@ -166,7 +168,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 			}
 			statesHandler = null;
 		}
-		
+
 		try {
 			statesHandler = new NRLabsHandler(state_log_name, rolloverMinutes, size, maxFiles);
 			statesHandler.setFormatter(new NRLabsFormatter());
@@ -175,7 +177,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 		} catch (IOException e) {
 			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to create channel state log file at {0}", state_log_name);
 		}
-		
+
 		if(STATELOGGER == null) {
 			try {
 				NewRelic.getAgent().getLogger().log(Level.FINE, "Building Log File, name: {0}, size: {1}, maxfiles: {2}", stateLogFileName, size, maxFiles);
@@ -184,11 +186,11 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 				NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to create channel state log file at {0}", channelMonitorFileName);
 			} 
 		}
-		
+
 		if(STATELOGGER != null && statesHandler != null) {
 			STATELOGGER.addHandler(statesHandler);
 		}
-		
+
 		initialized = true;
 	}
 
@@ -212,7 +214,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 			}
 		}
 	}
-	
+
 	public static ChannelMonitoringConfig getConfig(Config agentConfig) {
 		ChannelMonitoringConfig channelConifg = new ChannelMonitoringConfig();
 		Integer rolloverMinutes = agentConfig.getValue(CHANNELLOGROLLOVERINTERVAL);
@@ -244,7 +246,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 
 		boolean enabled = agentConfig.getValue(CHANNELSLOGENABLED, Boolean.TRUE);
 		channelConifg.setEnabled(enabled);
-		
+
 		Integer collection = agentConfig.getValue(CHANNELSLOGCOLLECTIONPERIOD);
 		if(collection != null) {
 			channelConifg.setCollection_period(collection);
@@ -266,9 +268,14 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 			} else {
 				if(!channelConfig.equals(currentChannelConfig)) {
 					currentChannelConfig = channelConfig;
+
 					NewRelic.getAgent().getInsights().recordCustomEvent("ChannelMonitoringConfig", currentChannelConfig.getCurrentSettings());
-					initialized = false;
-					init();
+					if(currentChannelConfig.isIntervalChangeOnly(channelConfig)) {
+						ChannelMonitor.reinitialScheduled(channelConfig.getCollection_period());
+					} else {
+						initialized = false;
+						init();
+					}
 				}
 			}
 		}
