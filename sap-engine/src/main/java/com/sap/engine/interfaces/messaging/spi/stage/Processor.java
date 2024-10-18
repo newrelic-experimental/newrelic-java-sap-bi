@@ -8,6 +8,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.newrelic.instrumentation.labs.sap.engine.EngineLogger;
 import com.newrelic.instrumentation.labs.sap.engine.EngineUtils;
 import com.sap.engine.interfaces.messaging.spi.Services;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
@@ -17,6 +18,8 @@ public abstract class Processor {
 
 	@Trace(dispatcher=true)
 	public void processMessage(Services services, TransportableMessage message, Map<String, Object> context) {
+		EngineLogger.logMessage(message, getClass() + ".processMessage");
+		EngineLogger.logMap(context, getClass() + ".processMessage");
 		
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","Processor",getClass().getSimpleName(),"processMessage");
 		Map<String, Object> attributes = new HashMap<String, Object>();

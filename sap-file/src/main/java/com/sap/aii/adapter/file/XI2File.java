@@ -7,6 +7,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.nr.instrumenation.sap.file.FileAdapterLogger;
 import com.nr.instrumenation.sap.file.FileUtils;
 import com.sap.aii.adapter.file.configuration.XI2FileConfiguration;
 import com.sap.aii.adapter.file.ftp.FTPCl;
@@ -21,6 +22,7 @@ public class XI2File {
 	
 	@Trace(dispatcher=true)
 	public Binary processMessage(Message message) {
+		FileAdapterLogger.logMessage(message, "com.sap.aii.adapter.file.XI2File.processMessage");
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName("Custom","SAP","File","XI2File","processMessage");
 		return Weaver.callOriginal();

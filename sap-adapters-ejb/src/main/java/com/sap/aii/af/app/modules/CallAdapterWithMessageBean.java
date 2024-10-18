@@ -6,6 +6,7 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.TransportType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.newrelic.instrumentation.labs.sap.adapters.ejb.AdapterLogger;
 import com.newrelic.instrumentation.labs.sap.adapters.ejb.SAPMessageHeaders;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.service.cpa.Channel;
@@ -18,6 +19,9 @@ public abstract class CallAdapterWithMessageBean {
 
 	@Trace(dispatcher=true)
 	private Object process_receiver(ModuleContext moduleContext, Message message, Channel channel) {
+		String source = "com.sap.aii.af.app.modules.CallAdapterWithMessageBean.process_receiver";
+		AdapterLogger.logModuleContext(moduleContext,source);
+		AdapterLogger.logMessage(message, source);
 		SAPMessageHeaders headers = new SAPMessageHeaders(message);
 		NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Other, headers);
 

@@ -7,6 +7,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.nr.instrumenation.sap.file.FileAdapterLogger;
 import com.nr.instrumenation.sap.file.FileUtils;
 import com.sap.engine.interfaces.messaging.api.Message;
 
@@ -15,6 +16,7 @@ public abstract class SapAdapterServiceFrameImpl {
 
 	@Trace(dispatcher=true)
 	public Object callSapAdapter(String channel, Message msMessage) {
+		FileAdapterLogger.logMessage(msMessage,"com.sap.aii.adapter.file.SapAdapterServiceFrameImpl.callSapAdapter");
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName("Custom","File","SapAdapterServiceFrameImpl","callSapAdapter");
 		HashMap<String, Object> attributes = new HashMap<String, Object>();

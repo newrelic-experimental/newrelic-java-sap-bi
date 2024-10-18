@@ -10,6 +10,7 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.newrelic.instrumentation.labs.sap.adapters.ejb.AdapterLogger;
 import com.newrelic.instrumentation.labs.sap.adapters.ejb.AdaptersUtils;
 import com.sap.aii.af.lib.mp.module.ModuleData;
 import com.sap.aii.af.service.cpa.CPAException;
@@ -26,6 +27,7 @@ public abstract class ModuleProcessorBean {
 
 	@Trace(dispatcher=true)
 	public ModuleData process(String channelId, ModuleData objectData) {
+		AdapterLogger.logModuleData(objectData, channelId, "com.sap.aii.af.app.mp.ejb.ModuleProcessorBean.process");
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		Channel channel = null;
 		String direction = null;

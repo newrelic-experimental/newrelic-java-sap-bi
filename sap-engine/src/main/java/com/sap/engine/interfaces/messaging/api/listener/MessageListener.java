@@ -8,6 +8,7 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.newrelic.instrumentation.labs.sap.engine.EngineLogger;
 import com.newrelic.instrumentation.labs.sap.engine.EngineUtils;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
@@ -24,6 +25,7 @@ public abstract class MessageListener {
 		EngineUtils.addMessageKey(attributes, msgKey);
 		traced.addCustomAttributes(attributes);
 		traced.setMetricName("Custom","SAP","MessageListener",getClass().getSimpleName(),"onMessage");
+		EngineLogger.logMessage(message, getClass().getName() + ".onMessage");
 		Weaver.callOriginal();
 	}
 }

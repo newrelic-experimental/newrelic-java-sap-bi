@@ -9,6 +9,7 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.newrelic.instrumentation.labs.sap.engine.EngineLogger;
 import com.newrelic.instrumentation.labs.sap.engine.EngineUtils;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 import com.sap.engine.interfaces.messaging.spi.Services;
@@ -21,6 +22,8 @@ public abstract class ProcessingBlock {
 
 	@Trace
 	public TransportableMessage[] process(Services services, TransportableMessage message, Map<String, Object> var3) {
+		EngineLogger.logMessage(message, getClass() + ".process, name = " + getName());
+		EngineLogger.logMap(var3, getClass() + ".process, name = " + getName());
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		
 		traced.setMetricName("Custom","ProcessingBlock",getClass().getSimpleName(),getName(),"process");
