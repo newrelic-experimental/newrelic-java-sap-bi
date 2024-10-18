@@ -26,6 +26,25 @@ public class NRJcoUtils {
 		 addAttribute(attributes, "Connection ID", ctx.getConnectionID());
 		 addJcoServer(attributes, ctx.getServer());
 		 addJcoRepository(attributes, ctx.getRepository());
+		 String[] queueNames = ctx.getQueueNames();
+		 if(queueNames !=  null && queueNames.length > 0) {
+			 addAttribute(attributes, "QueueNames", getQueueNames(queueNames));
+		 }
+		 addAttribute(attributes, "QueueName", ctx.getQueueName());
+		 addAttribute(attributes, "JCoServerCallType", ctx.getCallType());
+		 
+		 
+	}
+	
+	private static String getQueueNames(String[] names) {
+		int len = names.length;
+		StringBuffer sb = new StringBuffer();
+		for(int i=0;i<len;i++) {
+			String queueName = names[i];
+			sb.append(queueName);
+			if(i < len -1) sb.append(',');
+		}
+		return sb.toString();
 	}
 	
 	public static void addJcoAttributes(Map<String, Object> attributes, JCoAttributes jco_attributes) {
@@ -56,7 +75,7 @@ public class NRJcoUtils {
 			addAttribute(attributes, "JCoDestination - GatewayService", dest.getGatewayService());
 		}
 	}
-
+	
 	public static void addJCoFunctionUnit(Map<String,Object> attributes, JCoFunctionUnit unit) {
 		if(unit != null) {
 			List<JCoFunction> functions = unit.getFunctions();
@@ -87,5 +106,4 @@ public class NRJcoUtils {
 			
 		}
 	}
-
 }
