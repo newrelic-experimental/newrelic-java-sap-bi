@@ -1,5 +1,5 @@
 
-// Build.gradle generated for instrumentation module sap-jco
+// Build.gradle generated for instrumentation module sap-jco-3.1
 
 apply plugin: 'java'
 
@@ -9,16 +9,16 @@ dependencies {
    // implementation 'javax.servlet:servlet-api:2.5'
 
    // New Relic Labs Java Agent dependencies
-   implementation 'com.newrelic.agent.java:newrelic-agent:6.4.0'
-   implementation 'com.newrelic.agent.java:newrelic-api:6.4.0'
-   implementation fileTree(include: ['*.jar'], dir: '../libs')
+   implementation 'com.newrelic.agent.java:newrelic-agent:7.4.0'
+   implementation 'com.newrelic.agent.java:newrelic-api:7.4.0'
    implementation fileTree(include: ['*.jar'], dir: 'lib')
+   implementation fileTree(include: ['*.jar'], dir: '../libs')
    implementation fileTree(include: ['*.jar'], dir: '../test-lib')
 }
 
 jar {
   manifest {
-    attributes 'Implementation-Title': 'com.newrelic.instrumentation.labs.sap-jco'
+    attributes 'Implementation-Title': 'com.newrelic.instrumentation.labs.sap-jco-3.1'
     attributes 'Implementation-Vendor': 'New Relic Labs'
     attributes 'Implementation-Vendor-Id': 'com.newrelic.labs'
     attributes 'Implementation-Version': 1.0
@@ -26,5 +26,5 @@ jar {
 }
 
 verifyInstrumentation {
-	passes 'com.sap:sap-jco-driver:[3.0.0]'
+	passes 'com.sap:sap-jco-driver:[3.1.0]'
 }
