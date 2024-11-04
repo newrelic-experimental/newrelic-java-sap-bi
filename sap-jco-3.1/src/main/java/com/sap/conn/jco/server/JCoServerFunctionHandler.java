@@ -13,7 +13,7 @@ import com.sap.conn.jco.JCoFunction;
 @Weave(type = MatchType.Interface)
 public abstract class JCoServerFunctionHandler {
 
-	@Trace
+	@Trace(dispatcher = true)
 	public void handleRequest(JCoServerContext context, JCoFunction jcoFunction) {
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","JCoServerFunctionHandler",getClass().getSimpleName(),"handleRequest",jcoFunction.getName());
 		HashMap<String, Object> attributes = new HashMap<String, Object>();

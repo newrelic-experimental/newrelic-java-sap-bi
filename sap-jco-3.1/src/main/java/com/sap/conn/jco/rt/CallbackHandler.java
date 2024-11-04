@@ -8,9 +8,9 @@ import com.newrelic.api.agent.weaver.Weaver;
 import com.sap.conn.jco.JCoFunction;
 
 @Weave(type = MatchType.Interface)
-public abstract class CallbackHandler {
+abstract class CallbackHandler {
 
-	@Trace
+	@Trace(dispatcher = true)
 	public void execute(JCoFunction function) {
 		String classname = getClass().getSimpleName();
 		if (classname != null && !classname.isEmpty()) {

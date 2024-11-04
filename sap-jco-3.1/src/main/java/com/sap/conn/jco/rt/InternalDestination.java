@@ -13,7 +13,7 @@ import com.sap.conn.jco.JCoDestination;
 @Weave(type=MatchType.BaseClass)
 abstract class InternalDestination implements JCoDestination {
 
-	@Trace
+	@Trace(dispatcher = true)
 	void execute(AbapFunction abapFunction) {
 		String destName = getDestinationName();
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","Destination",getClass().getSimpleName(),"execute",destName);
@@ -24,7 +24,7 @@ abstract class InternalDestination implements JCoDestination {
 		Weaver.callOriginal();
 	}
 
-	@Trace
+	@Trace(dispatcher = true)
 	void execute(AbapFunctionUnit abapFunctionUnit) {
 		String destName = getDestinationName();
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","Destination",getClass().getSimpleName(),"execute",destName);
@@ -34,7 +34,7 @@ abstract class InternalDestination implements JCoDestination {
 		Weaver.callOriginal();
 	}
 
-	@Trace
+	@Trace(dispatcher = true)
 	void execute(AbapFunction abapFunction, String tid, String queueName) {
 		String destName = getDestinationName();
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","Destination",getClass().getSimpleName(),"execute",destName);

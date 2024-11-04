@@ -11,7 +11,7 @@ import com.sap.conn.jco.JCoResponse;
 @Weave(type = MatchType.Interface)
 public abstract class JCoServerRequestHandler {
 	
-	@Trace
+	@Trace(dispatcher = true)
 	public void handleRequest(JCoServerContext context, JCoRequest request, JCoResponse response) {
 		NewRelic.getAgent().getTracedMethod().setMetricName(new String[] { "Custom", "JCoServerRequestHandler", getClass().getSimpleName(), "handleRequest", request.getName() });
 		Weaver.callOriginal();

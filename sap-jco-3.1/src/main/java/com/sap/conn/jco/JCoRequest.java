@@ -16,7 +16,7 @@ public abstract class JCoRequest {
 	public JCoResponse execute(JCoDestination destination) throws JCoException {
 		NewRelic.getAgent().getTracedMethod().setMetricName(new String[] { "Custom", "JCoRequest", getClass().getSimpleName(), "execute", getName() });
 		NewRelic.getAgent().getTracedMethod().addCustomAttribute("Name", getName());
-		NewRelic.getAgent().getTracedMethod().addCustomAttribute("Destination", destination != null ? destination.getDestinationName() : "Unkown");
+		NewRelic.getAgent().getTracedMethod().addCustomAttribute("Destination", destination != null ? destination.getDestinationName() : "Unknown");
 		JCoResponse response = null;
 		try {
 			response = Weaver.callOriginal();
@@ -28,10 +28,11 @@ public abstract class JCoRequest {
 		
 	}
 	
+	@Trace(dispatcher = true)
 	public void execute(JCoDestination destination, String tid) throws JCoException {
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.addCustomAttribute("Name", getName());
-		traced.addCustomAttribute("Destination", destination != null ? destination.getDestinationName() : "Unkown");
+		traced.addCustomAttribute("Destination", destination != null ? destination.getDestinationName() : "Unknown");
 		traced.setMetricName(new String[] { "Custom", "JCoRequest", getClass().getSimpleName(), "execute", getName() });
 		traced.addCustomAttribute("TID", tid);
 		try {
@@ -42,6 +43,7 @@ public abstract class JCoRequest {
 		}
 	}
 	
+	@Trace(dispatcher = true)
 	public void execute(JCoDestination destination, String tid, String queueName) throws JCoException {
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName(new String[] { "Custom", "JCoRequest", getClass().getSimpleName(), "execute", getName() });

@@ -26,9 +26,5 @@ jar {
 }
 
 verifyInstrumentation {
-  // Verifier plugin documentation:
-  // https://github.com/newrelic/newrelic-gradle-verify-instrumentation
-  // Example:
-  // passes 'javax.servlet:servlet-api:[2.2,2.5]'
-  // exclude 'javax.servlet:servlet-api:2.4.public_draft'
+	passes 'com.sap:sap-jco-driver:[3.0.0]'
 }
