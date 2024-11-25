@@ -7,7 +7,6 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.newrelic.instrumentation.labs.sap.idoc.IDoc1Logger;
 import com.newrelic.instrumentation.labs.sap.idoc.SAPIDocsUtils;
 import com.sap.conn.idoc.IDocDocument;
 import com.sap.conn.idoc.IDocDocumentList;
@@ -31,7 +30,6 @@ public abstract class JCoIDocHandler {
 		for(int i=0; i<n;i++) {
 			HashMap<String, Object> docAttributes = new HashMap<>();
 			IDocDocument doc = idocList.get(i);
-			IDoc1Logger.logIDoc(doc, getClass().getName() + ".handleRequest, IDoc1");
 
 			SAPIDocsUtils.addIDocDocument(docAttributes, doc);
 			SAPIDocsUtils.addInstanceName(docAttributes);

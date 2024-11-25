@@ -1,4 +1,4 @@
-package com.newrelic.instrumentation.labs.sap.adapters.ejb;
+package com.newrelic.instrumentation.labs.sap.adapters;
 
 import java.io.File;
 import java.util.logging.Level;
@@ -27,15 +27,15 @@ public class AdapterLoggingConfig {
 			}
 		}
 		if(logDirExists) {
-			File logFile = new File(logDirectory, EJBAdapterLogger.CONTEXT_LOGFILENAME);
+			File logFile = new File(logDirectory, AdapterModuleLogger.CONTEXT_LOGFILENAME);
 			contextadapterLog = logFile.getAbsolutePath();
 			
-			File logFile2 = new File(logDirectory,EJBAdapterLogger.DATA_LOGFILENAME);
+			File logFile2 = new File(logDirectory,AdapterModuleLogger.DATA_LOGFILENAME);
 			supplementaadapterLog = logFile2.getAbsolutePath();
 		} else {
-			File logFile = new File(newRelicDir, EJBAdapterLogger.CONTEXT_LOGFILENAME);
+			File logFile = new File(newRelicDir, AdapterModuleLogger.CONTEXT_LOGFILENAME);
 			contextadapterLog = logFile.getAbsolutePath();
-			File logFile2 = new File(newRelicDir,EJBAdapterLogger.DATA_LOGFILENAME);
+			File logFile2 = new File(newRelicDir,AdapterModuleLogger.DATA_LOGFILENAME);
 			supplementaadapterLog = logFile2.getAbsolutePath();
 		}
 	}

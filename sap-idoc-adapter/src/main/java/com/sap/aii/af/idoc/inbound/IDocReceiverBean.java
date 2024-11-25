@@ -7,7 +7,6 @@ import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.newrelic.instrumentation.labs.sap.idocadapter.IDocAdapterLogger;
 import com.newrelic.instrumentation.labs.sap.idocadapter.SAPIDocsUtils;
 import com.sap.conn.idoc.IDocDocument;
 import com.sap.conn.idoc.IDocDocumentList;
@@ -29,7 +28,6 @@ public abstract class IDocReceiverBean {
 		for(int i=0; i<n;i++) {
 			HashMap<String, Object> docAttributes = new HashMap<>();
 			IDocDocument doc = iDocList.get(i);
-			IDocAdapterLogger.logIDoc(doc, "com.sap.aii.af.idoc.inbound.IDocReceiverBean.onMessage");
 			SAPIDocsUtils.addIDocDocument(docAttributes, doc);
 			SAPIDocsUtils.addInstanceName(docAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);
@@ -51,7 +49,6 @@ public abstract class IDocReceiverBean {
 			for (int i = 0; i < n; i++) {
 				HashMap<String, Object> docAttributes = new HashMap<>();
 				IDocDocument doc = iDocList.get(i);
-				IDocAdapterLogger.logIDoc(doc, "com.sap.aii.af.idoc.inbound.IDocReceiverBean.onMessage");
 				SAPIDocsUtils.addIDocDocument(docAttributes, doc);
 				SAPIDocsUtils.addInstanceName(docAttributes);
 				NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);

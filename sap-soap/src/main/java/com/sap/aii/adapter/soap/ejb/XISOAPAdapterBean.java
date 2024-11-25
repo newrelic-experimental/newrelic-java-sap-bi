@@ -1,10 +1,12 @@
 package com.sap.aii.adapter.soap.ejb;
 
+import java.util.HashMap;
+
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.newrelic.instrumentation.labs.sap.soap.SOAPAdapterLogger;
+import com.newrelic.instrumentation.labs.sap.soap.DataUtils;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.lib.mp.module.ModuleData;
 
@@ -13,9 +15,14 @@ public abstract class XISOAPAdapterBean {
 
 	@Trace(dispatcher=true)
 	public ModuleData process(ModuleContext moduleContext, ModuleData inputModuleData) {
-		SOAPAdapterLogger.logModuleContext(moduleContext, "com.sap.aii.adapter.soap.ejb.XISOAPAdapterBean.process");
-		SOAPAdapterLogger.logModuleData(inputModuleData, "com.sap.aii.adapter.soap.ejb.XISOAPAdapterBean.process");
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","SAP","SOAP","XISOAPAdapterBean","process");
+		HashMap<String, Object> attributes = new HashMap<String, Object>();
+
+		DataUtils.addContext(moduleContext);
+		boolean added = DataUtils.addAttributes(moduleContext, attributes);
+		if(added) {
+			NewRelic.getAgent().getTracedMethod().addCustomAttributes(attributes);
+		}
 		return Weaver.callOriginal();
 	}
 }

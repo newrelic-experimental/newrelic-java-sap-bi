@@ -5,7 +5,6 @@ import com.newrelic.api.agent.Trace;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.newrelic.instrumentation.labs.sap.engine.EngineLogger;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
 
 
@@ -20,28 +19,24 @@ public abstract class EventHandler {
 
 	@Trace(dispatcher=true)
 	public TransportableMessage onCall(Services services, TransportableMessage tMessage) {
-		EngineLogger.logMessage(tMessage, getClass().getName() + ".onCall");
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","EventHandler",getClass().getSimpleName(),"onCall");
 		return Weaver.callOriginal();
 	}
 
 	@Trace(dispatcher=true)
 	public void onDeliver(Services services, TransportableMessage tMessage, long timeOfLastDelivery, int deliveryCounter) {
-		EngineLogger.logMessage(tMessage, getClass().getName() + ".onDeliver");
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","EventHandler",getClass().getSimpleName(),"onDeliver");
 		Weaver.callOriginal();
 	}
 
 	@Trace(dispatcher=true)
 	public void onReceive(Services services, TransportableMessage tMessage) throws MessagingException {
-		EngineLogger.logMessage(tMessage, getClass().getName() + ".onReceive");
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","EventHandler",getClass().getSimpleName(),"onReceive");
 		Weaver.callOriginal();
 	}
 
 	@Trace(dispatcher=true)
 	public TransportableMessage onRequest(Services services, TransportableMessage tMessage) throws MessagingException {
-		EngineLogger.logMessage(tMessage, getClass().getName() + ".onRequest");
 		NewRelic.getAgent().getTracedMethod().setMetricName("Custom","EventHandler",getClass().getSimpleName(),"onRequest");
 		return Weaver.callOriginal();
 	}
