@@ -6,7 +6,6 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
-import com.nr.instrumenation.sap.file.FileAdapterLogger;
 import com.sap.aii.af.sdk.xi.lang.Binary;
 import com.sap.aii.af.sdk.xi.mo.Message;
 
@@ -15,7 +14,6 @@ public abstract class AdapterReceiver {
 
 	@Trace(dispatcher=true)
 	public Binary dispatchMessage(Message message) {
-		FileAdapterLogger.logMessage(message, getClass() + ".dispatchMessage");
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		traced.setMetricName("Custom","SAP","File","AdapterReceiver",getClass().getSimpleName(),"dispatchMessage");
 		
