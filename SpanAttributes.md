@@ -3,8 +3,6 @@ The SAP instrumentation will populate the spans/traces in the distributed trace/
 ## Module Message Processing  
 Via a JSON configuration file, you can configure attributes to collect via both the Module context data and Module supplemental data to spans of the following metric spans:
 
-
-## Span Data via Instrumentation   
 ### Data Collected 
 | Span (Metric) Name | Module Context | Module Data (Supplemental) |
 | ----------- | -------------- | -------------------------- |
@@ -46,3 +44,69 @@ Note that the configuration file is dynamic and will pick up changes (including 
     
 }   
 
+
+## Span Data via Instrumentation   
+
+### Attributes Collected 
+| Span/Tracer Name | Attribute or Data Group (**bold**) |
+| ---------------- | ---------------------------------- |
+| Custom/SAP/AdapterAccess/call/***msgFromService***,***msgInterface*** | MessageFromService, MessageInterface, MessageInterfaceNamespace |
+| Custom/SAP/AdapterAccess/execute/***msgFromService***,***msgInterface*** | MessageFromService, MessageInterface, MessageInterfaceNamespace |
+| Custom/SAP/AdapterAccess/send/***msgFromService***,***msgInterface*** | MessageFromService, MessageInterface, MessageInterfaceNamespace |
+| Custom/SAP/XIAccess/***connection***/call | FromService, InterfaceNamespace, FromParty, ToService, ToParty, Interface |
+| Custom/SAP/XIAccess/***connection***/send | FromService, InterfaceNamespace, FromParty, ToService, ToParty, Interface |
+| Custom/SAP/AS2/Deliverer/deliver |  **Channel**, **MessageKey**, **Message**, **AS2Message** |
+| Custom/SAP/AS2/Deliverer/deliverMDN |  **Channel**, MessageID, URL, AuthUser, ProxyHost, ProxyPort, ProxyUser |
+| Custom/SAP/AS2/ChannelDispatcher/receive |  **Channel**, **MessageKey** |
+| Custom/SAP/EJB3/***ClassName***/proceedFinal/***ejbclassName***/***ejbmethodName*** | **InstanceIdentity** |
+| Custom/SAP/MessageListener/***ClassName***/onMessage | **Message**, **MessageKey** |
+| Custom/ProcessingBlock/***ClassName***/process | **Message**, **MessageKey** |
+| Custom/Processor/***ClassName***/processMessage | **Message** |
+| Custom/SAP/QueueConsumer/***ClassName***/onMessage | **MessageKey**, QueueName |
+| Java/com.sap.engine.messaging.impl.core.service.Call/execute | **TransportMessage**, ConnectionName |
+| Java/com.sap.engine.messaging.impl.core.service.Receive/execute | **TransportMessage**, ConnectionName |
+| Java/com.sap.engine.messaging.impl.core.service.Request/execute | **TransportMessage**, ConnectionName |
+| Java/com.sap.engine.messaging.impl.core.service.Store/execute | **TransportMessage**, ConnectionName |
+| Java/com.sap.engine.messaging.impl.core.service.Trigger/execute | **TransportMessage**, ConnectionName |
+| Custom/SAP/Services/(call, deliver, receive, request, send, store, transmit, trigger) | **TransportMessage**, ConnectionName |
+| Custom/File/SapAdapterServiceFrameImpl/callSapAdapter | Channel, **MessageKey**, **Action**, **Party**, **Service** |
+| Java/***child class of com.sap.conn.idoc.jco.JCoIDoc***/send | QueueName, TID, **JCODestination** |
+| Custom/SAP/JDBC/JDBC2XI/send | **MessageKey** |
+| Custom/JDBC/SapAdapterServiceFrameImpl/callSapAdapter | Channel, **MessageKey**, **Action**, **Party**, **Service** |
+| Java/com.sap.engine.messaging.impl.api.collector.MessageCollector/onMessage | **QueueMessage** |
+| Java/com.sap.engine.messaging.impl.core.MessageController/putMessageInQueue | MessageKey, ConnectionName, MessageType |
+| Java/com.sap.engine.messaging.impl.core.MessageController/putMessageInStore | **QueueMessage** |
+| Java/com.sap.engine.messaging.impl.core.MessageController/scheduleMessage | MessageKey, ConnectionName, MessageType |
+| Custom/SAP/REST/AbstractReceiverChannel/***ClassName***/receive | **MessageKey**, **Action**, **Party**, **Service**,  CorrelationId, Protocol, InterfaceName |
+| Custom/SAP/REST/RESTSenderChannel/service/***endpoint*** | Method, Path, RequestURL, Query, Endpoint |
+| Custom/Scheduler/JobExecutionRuntimeImpl/executeJob | Job-Name, Job-Node, Job-ID |
+| Custom/Scheduler/JobExecutor/onJob | Job-Name, Job-Node, Job-ID |
+| Custom/SAP/SFTP/Archiver/archive | **Message**, File, ReturnedFileURL |
+| Custom/SAP/SFTP/ArchiverSFTP/archive | **Message**, File, ReturnedFileURL, Home |
+| Custom/SAP/SFTP/SSHConnection/send | AbsoluteFilePath, Mode, Host |
+| Custom/SAP/SFTP/SSHConnection/copy | SourceFile, Host, DestinationFile |
+| Custom/SAP/SFTP/SSHConnection/delete | File, Host |
+| Custom/SAP/SFTP/SSHConnection/get | File, Host, LocalFile |
+| Custom/SAP/SFTP/CCIInteraction/execute | **InteractionSpec**, InputRecord, ReturnedRecord, OutputRecord |
+| Custom/WebServices/TransportBinding/***ClassName***/sendResponseMessage | **ProviderContextHelper**, Action |
+| Custom/WebServices/TransportBinding/***ClassName***/sendServerError | **ProviderContextHelper**, Action |
+| Custom/WebServices/TransportBinding/***ClassName***/sendAsynchronousResponse | **ProviderContextHelper**, Action |
+| Custom/WebServices/TransportBinding/***ClassName***/sendMessageOneWay | **ProviderContextHelper**, Action |
+| Custom/WebServices/ImplementationContainer/invokeMethod | MethodName, ConfigContext-Name, ConfigContext-Path |
+   
+### Data Groups   
+| Data Group | Attributes |
+| ---------- | ---------- |
+| Channel | Channel-Name, Channel-AdapterType, Channel-Direction, Channel-Party, Channel-Service |
+| Message | Message-Action, Message-Id, Message-CorreleationId, Message-SequenceId, Message-FromParty, Message-ToParty, Message-FromService, Message-ToService |
+| MessageKey | MessageKey-ID, MessageKey-Direction |
+| AS2Message | AS2Message-ContentType, AS2Message-FileName, AS2Message-FromEmain, AS2Message-FromName, AS2Message-MessageId, AS2Message-Subject, AS2Message-ToName |
+| InstanceIdentity | ApplicationName, ModuleName, BeanName, ElementUniqueName |
+| TransportMessage | TransportMessage-CorrelationID, TransportMessage-MessageId, Action, TransportMessage-FromParty, TransportMessage-ToParty, TransportMessage-FromService, TransportMessage-ToService |
+| Action | Action-Name, Action-Type |
+| Party | ToParty-Name, ToParty-Type, FromParty-Name, FromParty-Type |
+| Service | ToService-Name, ToService-Type, FromService-Name, FromService-Type |
+| JCODestination |  ApplicationServerHost,DestinationName, Client, GatewayService, GatewayHost |
+| QueueMessage | ConnectionName, MessageKey, MessageType, Protocol |
+| InteractionSpec | XIInteractionSpec-FunctionName, XIInteractionSpec-Class |
+| ProviderContextHelper | Path, SessionId, Name, Operation-HTTPLocation, Operation-JavaMethodName, Operation-WSDLOperationName |
