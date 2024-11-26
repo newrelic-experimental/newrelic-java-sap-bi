@@ -44,6 +44,13 @@ Note that the configuration file is dynamic and will pick up changes (including 
     
 }   
 
+### JSON attributes
+ModuleContext - configures what to collect from the ModuleContext object   
+collectChannelId - boolean value indicating whether or not to report the channel id in the ModuleContext object.  Default is true.   
+attributesToCollect - JSONArray in which each string entry is the name of a ModuleContext attribute to report.   Default is none.   
+ModuleData - configures what to collect from the supplemental data object in the ModuleData object.  Note future release may also include PrincipalData (usually a Message).   
+supplementalData - JSON object indicating what attributes to collect from supplemental data.  Note that only String, Number, Boolean and Map objects are recorded.   
+attributesToCollect - JSONArray in which each string entry is the name of a ModuleContext attribute to report.   Default is none.   
 
 ## Span Data via Instrumentation   
 
