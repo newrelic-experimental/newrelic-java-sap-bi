@@ -28,7 +28,7 @@ public abstract class CallAdapterWithMessageBean {
 
 		String adapterType = channel.getAdapterType();
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
-		traced.setMetricName("Custom","SAP",adapterType,"Adapters","Channel","Receiver",adapterType);
+		traced.setMetricName("Custom","SAP","Adapters","Channel","process_receiver",adapterType);
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
 		DataUtils.addAttributes(moduleContext, attributes);
 		AdaptersUtils.addChannel(attributes, channel);
@@ -42,6 +42,7 @@ public abstract class CallAdapterWithMessageBean {
 	private Message process_sender(Connection connection, ModuleContext moduleContext, Message msMessage) {
 		DataUtils.addContext(moduleContext);
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
+		traced.setMetricName("Custom","SAP","Adapters","Channel","process_sender");
 		HashMap<String, Object> attributes = new HashMap<String, Object>();
 		DataUtils.addAttributes(moduleContext, attributes);
 		AdaptersUtils.addMessage(attributes, msMessage);

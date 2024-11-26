@@ -21,7 +21,7 @@ public class JobsUtils {
 		}
 		int index = jobName.indexOf('_');
 		if(index > -1) {
-			String temp = jobName.substring(index);
+			String temp = jobName.substring(index+1);
 			if(pattern.matcher(temp).matches()) {
 				return jobName.substring(0, index) + "_xxxxx";
 			}

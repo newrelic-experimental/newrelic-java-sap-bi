@@ -13,8 +13,6 @@ dependencies {
    implementation 'com.sap:ms_svc_api:1.0.0'
 
    // New Relic Labs Java Agent dependencies
-   implementation 'com.newrelic.agent.java:newrelic-agent:6.4.0'
-   implementation 'com.newrelic.agent.java:newrelic-api:6.4.0'
    implementation fileTree(include: ['*.jar'], dir: '../libs')
 }
 
