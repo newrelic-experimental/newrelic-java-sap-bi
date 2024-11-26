@@ -46,6 +46,9 @@ To install, follow the instruction in the release notes
 
 Once installed, the instrumentation will track transactions through the various SAP components.
 
+## Instance Naming
+Each instance in an SAP cluster is named according to two SAP environment variables if set.   These are SAPSYSTEMNAME and SAPMYNAME.   If both are set the instance name is set to ***value of SAPSYSTEMNAME***-***value of SAPMYNAME***.  If just SAPMYNAME is set then the instance name is set to ***value of SAPMYNAME***.   If neither is set then default instance names are used.   
+   
 ## Logs ##
 Serveral of the instrumentation modules can be used to generate logs containing SAP data.  This is done because the amount of data sent via custom events is limited.  This data can be monitored via the New Relic Logs product.   
 For details on what is collected and how to configure see https://github.com/newrelic-experimental/newrelic-java-sap-bi/blob/main/Logs/Logging.md   
