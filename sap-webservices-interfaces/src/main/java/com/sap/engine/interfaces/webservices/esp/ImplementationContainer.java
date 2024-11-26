@@ -9,7 +9,6 @@ import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.newrelic.instrumentation.labs.sap.webservices.Utils;
-import com.sap.engine.interfaces.webservices.esp.ConfigurationContext;
 
 @Weave(type=MatchType.Interface)
 public abstract class ImplementationContainer {
