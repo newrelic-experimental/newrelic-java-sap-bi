@@ -26,7 +26,6 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Weaver.callOriginal();
 		if(EngineUtils.HEADERS_SET.get()) {
@@ -44,7 +43,6 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Weaver.callOriginal();
 		if(EngineUtils.HEADERS_SET.get()) {
@@ -62,7 +60,6 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Weaver.callOriginal();
 		if(EngineUtils.HEADERS_SET.get()) {
@@ -80,7 +77,6 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Weaver.callOriginal();
 		if(EngineUtils.HEADERS_SET.get()) {
@@ -98,7 +94,6 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Weaver.callOriginal();
 		if(EngineUtils.HEADERS_SET.get()) {
@@ -116,15 +111,10 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Message reply = Weaver.callOriginal();
 		if(EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(false);
-		}
-		if(reply != null) {
-			HeadersUtil.getHeaders(reply);
-			HeadersUtil.dumpHeaders(reply);
 		}
 		return reply;
 	}
@@ -139,13 +129,8 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Message reply = Weaver.callOriginal();
-		if(reply != null) {
-			HeadersUtil.getHeaders(reply);
-			HeadersUtil.dumpHeaders(reply);
-		}
 		return reply;
 	}
 
@@ -159,15 +144,10 @@ public abstract class Connection {
 		if(!EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(true);
 			HeadersUtil.addHeaders(message);
-			HeadersUtil.dumpHeaders(message);
 		}
 		Message reply = Weaver.callOriginal();
 		if(EngineUtils.HEADERS_SET.get()) {
 			EngineUtils.HEADERS_SET.set(false);
-		}
-		if(reply != null) {
-			HeadersUtil.getHeaders(reply);
-			HeadersUtil.dumpHeaders(reply);
 		}
 		return reply;
 	}

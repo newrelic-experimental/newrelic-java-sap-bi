@@ -21,7 +21,7 @@ public abstract class AbstractReceiverChannel {
 		RESTUtils.addMessageKey(attributes, message.getMessageKey());
 		RESTUtils.addValue(attributes, "CorrelationId", message.getCorrelationId());
 		RESTUtils.addValue(attributes, "InterfaceName", message.getInterfaceName());
-		RESTUtils.addValue(attributes, "CorrelationId", message.getProtocol());
+		RESTUtils.addValue(attributes, "Protocol", message.getProtocol());
 		RESTUtils.addParty(attributes, message.getFromParty(), "From");
 		RESTUtils.addParty(attributes, message.getToParty(), "To");
 		RESTUtils.addService(attributes, message.getFromService(), "From");

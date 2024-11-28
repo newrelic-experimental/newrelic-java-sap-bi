@@ -1,6 +1,8 @@
 package com.sap.engine.messaging.impl.core.queue.consumer;
 
+import com.newrelic.api.agent.NewRelic;
 import com.newrelic.api.agent.Trace;
+import com.newrelic.api.agent.TransportType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
@@ -16,11 +18,10 @@ public class CallConsumer extends SyncConsumer {
 		super(queue);
 	}
 
-	@Trace(async = true)
+	@Trace(dispatcher = true)
 	public void onMessage(QueueMessage queueMessage, QueueEntry queueEntry) throws MessagingException {
-		if(queueMessage.token != null) {
-			queueMessage.token.linkAndExpire();
-			queueMessage.token = null;
+		if(queueMessage.nr_headers != null) {
+			NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Other, queueMessage.nr_headers);
 		}
 		Weaver.callOriginal();
 	}

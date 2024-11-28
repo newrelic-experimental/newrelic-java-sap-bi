@@ -17,7 +17,6 @@ public abstract class JCoIDocHandler {
 
 	@Trace
 	public void handleRequest(JCoServerContext p0, IDocDocumentList idocList) {
-
 		HashMap<String, Object> listAttributes = new HashMap<>();
 		
 		SAPIDocsUtils.addIDocDocumentList(listAttributes, idocList);
@@ -31,6 +30,7 @@ public abstract class JCoIDocHandler {
 		for(int i=0; i<n;i++) {
 			HashMap<String, Object> docAttributes = new HashMap<>();
 			IDocDocument doc = idocList.get(i);
+
 			SAPIDocsUtils.addIDocDocument(docAttributes, doc);
 			SAPIDocsUtils.addInstanceName(docAttributes);
 			NewRelic.getAgent().getInsights().recordCustomEvent("IDOC_RECV", docAttributes);

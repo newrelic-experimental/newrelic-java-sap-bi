@@ -32,7 +32,6 @@ public class EngineUtils {
 			addValue(attributes, "Message-FromParty", msg.getFromParty());
 			addValue(attributes, "Message-FromService", msg.getFromService());
 			addValue(attributes, "Message-Id", msg.getMessageId());
-			addValue(attributes, "Message-Protocol", msg.getProtocol());
 			addValue(attributes, "Message-SequenceId", msg.getSequenceId());
 			addValue(attributes, "Message-ToParty", msg.getToParty());
 			addValue(attributes, "Message-ToService", msg.getToService());
