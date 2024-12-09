@@ -43,13 +43,14 @@ public class ConfigurationListener extends TimerTask {
 				lastModified = configFile.lastModified();
 			}
 		} catch (FileNotFoundException e) {
-			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Configuration file {0} was not found",configFile);
+			NewRelic.getAgent().getLogger().log(Level.FINEST, e, "Configuration file {0} was not found",configFile);
 		} catch (JsonException e) {
 			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Error was generated while trying to parse JSON contents from file {0}",configFile);
 		}
 	}
 	
 	protected void loadConfig() throws FileNotFoundException, JsonException {
+		NewRelic.getAgent().getLogger().log(Level.FINE, "processing SAP attribute configuration");
 		AttributeConfiguration.clearAttributes();
 		FileReader reader = new FileReader(configFile);
 		Object obj = Jsoner.deserialize(reader);
@@ -103,30 +104,85 @@ public class ConfigurationListener extends TimerTask {
 						} else {
 							NewRelic.getAgent().getLogger().log(Level.FINE,"Did not find supplemental data attributes to collect, found {0}",sDataObj);
 						}
+					} else {
+						NewRelic.getAgent().getLogger().log(Level.FINE,"No supplemental data configuration was found", sDataObj);
 					}
 					Object prinObj = dataJson.get("principalData");
 					if(prinObj != null && prinObj instanceof JsonObject) {
 						JsonObject prinJson = (JsonObject)prinObj;
 						Boolean enabled = prinJson.getBoolean(new BooleanJsonKey("enabled"));
+						AttributeConfiguration.setPrincipalEnabled(enabled);
 						NewRelic.getAgent().getLogger().log(Level.FINE,"Principal Data enabled: {0} ", enabled);
+						Boolean collectDefault = prinJson.getBoolean(new BooleanJsonKey("collectDefault"));
+						AttributeConfiguration.setPrincipalDefaultsEnabled(collectDefault);
+						NewRelic.getAgent().getLogger().log(Level.FINE,"Principal Data collect default: {0} ", collectDefault);
 						Object arrayObj = prinJson.get("attributesToCollect");
 						if(arrayObj != null && arrayObj instanceof JsonArray) {
 							JsonArray arrayJson = (JsonArray)arrayObj;
 							int size = arrayJson.size();
 							NewRelic.getAgent().getLogger().log(Level.FINE,"Will collect {0} PrincipalData attributes", size);
 							for(int index = 0;index<size;index++) {
-								AttributeConfiguration.addPrincipalAttribute(arrayJson.getString(index));
+								String attribute =arrayJson.getString(index);
+								int propertyIndex = attribute.indexOf("MessagePropertyKey [");
+								if(propertyIndex > -1) {
+									String tmp = attribute.substring(propertyIndex + "MessagePropertyKey [".length(), attribute.length()-1);
+									String[] parts = tmp.split("[= ]");
+									if(parts.length == 4) {
+										String propertyName = null;
+										String propertyNamespace = null;
+										for(int i=0;i<4;i=i+2) {
+											String s = parts[i];
+											if(s.equals("propertyName")) {
+												propertyName = parts[i+1].replace(',', ' ').trim();
+											} else if(s.equals("propertyNamespace")) {
+												propertyNamespace = parts[i+1];
+											}
+										}
+										if(propertyName != null) {
+											AttributeConfiguration.addMessagePropertyKey(propertyNamespace, propertyName);
+										}
+
+									}
+								} else {
+									int attachmentIndex = attribute.indexOf("Attachment-Attribute: ");
+									if(attachmentIndex > -1) {
+										String tmp = attribute.substring(attachmentIndex + "Attachment-Attribute: ".length());
+										String[] parts = tmp.split("[=,]");
+										if(parts.length == 4) {
+											String payloadName = null;
+											String attributeName = null;
+											for(int i=0;i<parts.length;i=i+2) {
+												String s = parts[i];
+												if(s.equals("PayloadName")) {
+													payloadName = parts[i+1].replace(',', ' ').trim();
+												} else if(s.equals("AttributeName")) {
+													attributeName = parts[i+1];
+												}
+												
+											}
+											if(payloadName != null && attributeName != null) {
+												AttributeConfiguration.addAttributeKey(payloadName, attributeName);
+											}
+										}
+									} else {
+										AttributeConfiguration.addPrincipalAttribute(attribute);
+									}
+								}
 							}
 
 						} else {
-							NewRelic.getAgent().getLogger().log(Level.FINE,"Did not find supplemental data attributes to collect, found {0}", sDataObj);
+							NewRelic.getAgent().getLogger().log(Level.FINE,"Did not find principal data attributes to collect, found {0}", sDataObj);
 						}
+					} else {
+						NewRelic.getAgent().getLogger().log(Level.FINE,"No principal data configuration was found", sDataObj);
 					}
 
+				} else {
+					NewRelic.getAgent().getLogger().log(Level.FINE,"No Module data configuration was found");
 				}
 			}
-			DataUtils.reset();
 		}
+		DataUtils.reset();
 		
 	}
 
@@ -158,3 +214,4 @@ public class ConfigurationListener extends TimerTask {
 
 
 }
+

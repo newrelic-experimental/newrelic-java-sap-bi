@@ -10,6 +10,7 @@ public class AdapterLoggingConfig {
 
 	private String contextadapterLog = null;
 	private String supplementaadapterLog = null;
+	private String principaladapterLog = null;
 
 	public AdapterLoggingConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
@@ -32,12 +33,21 @@ public class AdapterLoggingConfig {
 			
 			File logFile2 = new File(logDirectory,EJBAdapterLogger.DATA_LOGFILENAME);
 			supplementaadapterLog = logFile2.getAbsolutePath();
+			
+			File logFile3 = new File(logDirectory, EJBAdapterLogger.DATA_PRINCIPAL_LOGFILENAME);
+			principaladapterLog = logFile3.getAbsolutePath();
 		} else {
 			File logFile = new File(newRelicDir, EJBAdapterLogger.CONTEXT_LOGFILENAME);
 			contextadapterLog = logFile.getAbsolutePath();
 			File logFile2 = new File(newRelicDir,EJBAdapterLogger.DATA_LOGFILENAME);
 			supplementaadapterLog = logFile2.getAbsolutePath();
+			File logFile3 = new File(newRelicDir, EJBAdapterLogger.DATA_PRINCIPAL_LOGFILENAME);
+			principaladapterLog = logFile3.getAbsolutePath();
 		}
+	}
+
+	public String getPrincipaladapterLog() {
+		return principaladapterLog;
 	}
 
 	public String getContextLog() {
@@ -48,3 +58,4 @@ public class AdapterLoggingConfig {
 		return supplementaadapterLog;
 	}
 }
+
