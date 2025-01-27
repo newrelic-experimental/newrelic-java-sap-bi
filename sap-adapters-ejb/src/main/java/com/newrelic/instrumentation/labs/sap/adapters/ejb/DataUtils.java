@@ -43,6 +43,7 @@ public class DataUtils {
 	private static Set<MessagePropertyKey> messagePropertyKeysToCapture = new HashSet<MessagePropertyKey>();
 	private static List<String> attachmentNames = new ArrayList<String>();
 	private static List<String> attachmentAttributes = new ArrayList<String>();
+	private static final Set<String> principalAttributesList;
 
 	static {
 		executor.submit(new ContextProcessor());
@@ -64,6 +65,46 @@ public class DataUtils {
 		defaultMessageAttributes.add("MessageKey-Direction");
 		defaultMessageAttributes.add("MessageKey-ID");
 
+		principalAttributesList = new HashSet<String>();
+		principalAttributesList.add("Message-Action");
+		principalAttributesList.add("Message-CorrelationId");
+		principalAttributesList.add("Message-FromParty");
+		principalAttributesList.add("Message-FromService");
+		principalAttributesList.add("Message-Id");
+		principalAttributesList.add("Message-Protocol");
+		principalAttributesList.add("Message-SequenceId");
+		principalAttributesList.add("Message-ToParty");
+		principalAttributesList.add("Message-ToService");
+		principalAttributesList.add("Message-AttachmentCount");
+		principalAttributesList.add("Message-AttachmentNames");
+		principalAttributesList.add("Message-ErrorInfo");
+		principalAttributesList.add("Message-Description");
+		principalAttributesList.add("Message-RefToMessageId");
+		principalAttributesList.add("Message-TimeReceived");
+		principalAttributesList.add("Message-TimeSent");
+
+		principalAttributesList.add("TransportableMessage-MessagePriority");
+		principalAttributesList.add("TransportableMessage-Retries");
+		principalAttributesList.add("TransportableMessage-SequenceNumber");
+		principalAttributesList.add("TransportableMessage-PersistUntil");
+		principalAttributesList.add("TransportableMessage-ValidUntil");
+		principalAttributesList.add("TransportableMessage-VersionNumber");
+		principalAttributesList.add("TransportableMessage-ParentId");
+
+		principalAttributesList.add("MessageKey-Direction");
+		principalAttributesList.add("MessageKey-ID");
+		
+		principalAttributesList.add("Endpoint-Address");
+		principalAttributesList.add("Endpoint-Transport");
+
+		principalAttributesList.add("Payload-Name");
+		principalAttributesList.add("Payload-Description");
+		principalAttributesList.add("Payload-ContentType");
+		principalAttributesList.add("Payload-AttributeNames");
+
+		for(String attribute : principalAttributesList) {
+			EJBAdapterLogger.logNewPrincipalMessageAttribute(attribute);
+		}
 	}
 
 	public static void addContext(ModuleContext context) {

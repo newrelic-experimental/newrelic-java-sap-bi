@@ -17,7 +17,7 @@ public class AttributeConfiguration {
 	private static Set<String> contextAttributes = new HashSet<String>();
 	private static boolean supplementalEnabled = false;
 	private static Set<String> supplementalAttributes = new HashSet<String>();
-	private static boolean principalEnabled = false;
+	private static boolean principalEnabled = true;
 	private static Set<String> principalAttributes = new HashSet<String>();
 	private static boolean principalDefaultsEnabled = true;
 	private static Map<String, List<String>> payloadAttributesToCapture = new HashMap<String, List<String>>();
