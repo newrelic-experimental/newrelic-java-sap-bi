@@ -102,6 +102,7 @@ public class AttributeConfig extends TimerTask {
 	private boolean BusinessMessage = false;
 	private static AttributeConfig INSTANCE = null;
 	private static File configFile;
+	private static boolean usingDefault = false;
 	private static long lastMod = System.currentTimeMillis();
 	
 	public static AttributeConfig getInstance() {
@@ -120,7 +121,10 @@ public class AttributeConfig extends TimerTask {
 	private static void setConfigFile() {
 		File nrDir = ConfigFileHelper.getNewRelicDirectory();
 		configFile = new File(nrDir,CONFIGFILENAME);
-		lastMod = configFile.lastModified();
+		
+		lastMod = configFile != null ? configFile.lastModified() : System.currentTimeMillis() - 5*60000L;
+		usingDefault = configFile != null ? configFile.exists() : false;
+		
 	}
 	
 	private static AttributeConfig constructInstance() {
@@ -139,6 +143,7 @@ public class AttributeConfig extends TimerTask {
 				NewRelic.getAgent().getLogger().log(Level.FINE, "Created AttributeConfig from config file, configuation is {0}", config);
 				NewRelic.getAgent().getInsights().recordCustomEvent("AttributeConfig", config.configurationMap());
 				fis.close();
+				usingDefault = false;
 				return config;
 			} catch (JsonSyntaxException e) {
 				NewRelic.getAgent().getLogger().log(Level.FINER,e, "Unable to parse JSON from adapter-message-config.json");
@@ -148,6 +153,7 @@ public class AttributeConfig extends TimerTask {
 				NewRelic.getAgent().getLogger().log(Level.FINER,e, "IOException while trying to parse JSON in adapter-message-config.json");
 			}
 		}
+		usingDefault = true;
 		return new AttributeConfig();
 	}
 	
@@ -485,11 +491,18 @@ public class AttributeConfig extends TimerTask {
 			setConfigFile();
 		}
 		if(configFile != null) {
-			long last = configFile.lastModified();
-			if(last > lastMod) {
-				NewRelic.getAgent().getLogger().log(Level.FINE, "Contents of {0} have been modified, reloading AttributeConfig", CONFIGFILENAME);
+			
+			if (configFile.exists()) {
+				long last = configFile.lastModified();
+				if (last > lastMod) {
+					NewRelic.getAgent().getLogger().log(Level.FINE,
+							"Contents of {0} have been modified, reloading AttributeConfig", CONFIGFILENAME);
+					INSTANCE = constructInstance();
+					lastMod = last;
+				} 
+			} else if(!usingDefault) {
+				// assumption is that the configuration file has been deleted. revert to default
 				INSTANCE = constructInstance();
-				lastMod = last;
 			}
 		}
 	}
