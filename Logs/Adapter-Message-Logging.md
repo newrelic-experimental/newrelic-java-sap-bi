@@ -13,7 +13,8 @@ If the _all setting is set to true, it will report all of the attributes.  If _a
 If any business attributes are included with a message then they will be reported as well. They will be reported with a key value of BusinessAttribute-*attributeName*    
 ## Logging ##
 All attributes that are configured to report will always be reported and in the same order to make for easier parsing.  If the attribute value that is retieved is null then it will be reported by the string Not_Reported.  If the value is an empty string then it will be reported as Empty_String    
-
+### Note on Logging Start ###
+This logging is configured to start when the Adapter monitoring components start, therefore it may take a few minutes before the logs appear.   
 ## Attributes ##  
 | Name | Default Value |
 | ---- | ---- |
