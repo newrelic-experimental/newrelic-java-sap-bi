@@ -32,6 +32,8 @@ public class MessageMonitor implements Runnable {
 	private static Date last = new Date(System.currentTimeMillis() - 5L * 60L * 1000L);
 	private static long frequency = 3;
 	private static long delay = 1;
+	private static final String NOT_REPORTED = "Not_Reported";
+	private static final String EMPTY_STRING = "Empty_String";
 
 	private MessageMonitor() {
 	}
@@ -113,92 +115,170 @@ public class MessageMonitor implements Runnable {
 			addToMap("ApplicationComponent", appComp, attributes);
 		}
 
+		if(config.collectBusinessMessage()) {
+			BooleanAttribute busMsg = data.getBusinessMessage();
+				addToMap("BusinessMessage", busMsg.getValue(), attributes);
+		}
+
+		if(config.collectCancelable()) {
+			BooleanAttribute cancelable = data.getCancelable();
+			if(cancelable != null) {
+				addToMap("Cancelable", cancelable.getValue(), attributes);
+			} else {
+				addToMap("Cancelable", NOT_REPORTED, attributes);
+			}
+		}
+		
 		if(config.collectConnectionName()) {
 			String connName = data.getConnectionName();
-			addToMap("Connection", connName, attributes);
+			addToMap("ConnectionName", connName, attributes);
 		}
 
 		if(config.collectCorrelationId()) {
 			String corrId = data.getCorrelationID();
 			addToMap("CorrelationID", corrId, attributes);
 		}
+		
 		if(config.collectDirection()) {
 			String direction = data.getDirection();
 			addToMap("Direction", direction, attributes);
 		}
+		
 		if(config.collectDuration()) {
 			DurationAttribute duration = data.getDuration();
 			addToMap("Duration", duration.getDuration(), attributes);
 		}
+		
+		if(config.collectEditable()) {
+			BooleanAttribute editable = data.getEditable();
+			if(editable != null) {
+				addToMap("Editable", editable.getValue(), attributes);
+			} else {
+				addToMap("Editable", NOT_REPORTED, attributes);
+			} 
+		}
+		
 		if(config.collectEndpoint()) {
 			String endPt = data.getEndpoint();
 			addToMap("Endpoint", endPt, attributes);
 		}
+		
 		if(config.collectEndTime()) {
 			Date endTime = data.getEndTime();
 			addToMap("EndTime", endTime, attributes);
 		}
+		
 		if(config.collectErrorCategory()) {
 			String errorCat = data.getErrorCategory();
 			addToMap("ErrorCategory", errorCat, attributes);
 		}
+		
 		if(config.collectErrorCode()) {
 			String errorCode = data.getErrorCode();
 			addToMap("ErrorCode", errorCode, attributes);
 		}
+		
 		if(config.collectErrorLabel()) {
 			int errLabel = data.getErrorLabel();
 			addToMap("ErrorLabel", errLabel, attributes);
 		}
+		
+		if(config.collectHeaders()) {
+			String headers = data.getHeaders();
+			addToMap("Headers", headers, attributes);
+		}
+		
 		MessageInterface msgInterface = data.getInterface();
 		LinkedHashMap<String, Object> interfaceAttrs = getMapForMessageInterface(msgInterface);
 		if(interfaceAttrs != null && !interfaceAttrs.isEmpty()) {
 			attributes.putAll(interfaceAttrs);
 		}
-		if(config.collectPersistent()) {
+		
+		if(config.collectIsPersistent()) {
 			boolean isPerst = data.getIsPersistent();
 			addToMap("IsPersistent", isPerst, attributes);
 		}
+		
 		if(config.collectMessageId()) {
 			String msgId = data.getMessageID();
 			addToMap("MessageId", msgId, attributes);
 		}
+		
 		if(config.collectMessageKey()) {
 			String msgKey = data.getMessageKey();
 			addToMap("MessageKey", msgKey, attributes);
 		}
+		
 		if(config.collectMessagePriority()) {
 			int msgPriority = data.getMessagePriority();
 			addToMap("MessagePriority", msgPriority, attributes);
 		}
+		
 		if(config.collectMessageType()) {
 			String msgType = data.getMessageType();
 			addToMap("MessageType", msgType, attributes);
 		}
+		
 		if(config.collectNodeId()) {
 			int nodeId = data.getNodeId();
 			addToMap("NodeId", nodeId, attributes);
 		}
+		
 		if(config.collectParentId()) {
 			String parentID = data.getParentID();
 			addToMap("ParentId", parentID, attributes);
 		}
+		
 		if(config.collectPassport()) {
 			String passport = data.getPassport();
 			addToMap("Passport", passport, attributes);
 		}
+		
+		if(config.collectPassportConnectionCounter()) {
+			int connectionCounter = data.getPassportConnectionCounter();
+			addToMap("PassportConnectionCounter", connectionCounter, attributes);
+		}
+		
+		if(config.collectPassportConnectionID()) {
+			String connectionCounterID = data.getPassportConnectionID();
+			addToMap("PassportConnectionID", connectionCounterID, attributes);
+		}
+		
+		if(config.collectPassportPreviousComponent()) {
+			String previousComp = data.getPassportPreviousComponent();
+			addToMap("PassportPreviousComponent", previousComp, attributes);
+		}
+		
+		if(config.collectPassportRootContextID()) {
+			String rootID = data.getPassportRootContextID();
+			addToMap("PassportRootContextID", rootID, attributes);
+		}
+		
+		if(config.collectPassportTID()) {
+			String tid = data.getPassportTID();
+			addToMap("PassportTID", tid, attributes);
+		}
+		
+		if(config.collectPayloadPermissionWarning()) {
+			boolean payloadWarning = data.getPayloadPermissionWarning();
+			addToMap("PayloadPermissionWarning", payloadWarning, attributes);
+		}
+		
 		if(config.collectPersistUntil()) {
 			Date persistUntil = data.getPersistUntil();
+			
 			addToMap("PersistUntil", persistUntil, attributes);
 		}
 		if(config.collectProtocol()) {
 			String protocol = data.getProtocol();
 			addToMap("Protocol", protocol, attributes);
 		}
+		
 		if(config.collectQualityOfService()) {
 			String qos = data.getQualityOfService();
 			addToMap("QualityOfService", qos, attributes);
 		}
+		
 		MessageInterface receiverInterface = data.getReceiverInterface();
 		LinkedHashMap<String, Object> recAttrs = getMapForReceiverMessageInterface(receiverInterface);
 		if(recAttrs != null && !recAttrs.isEmpty()) {
@@ -209,6 +289,7 @@ public class MessageMonitor implements Runnable {
 			String receiverName = data.getReceiverName();
 			addToMap("ReceiverName", receiverName, attributes);
 		}
+		
 		if(config.collectReceiverParty_all()) {
 			MessageParty recParty = data.getReceiverParty();
 
@@ -228,39 +309,48 @@ public class MessageMonitor implements Runnable {
 				addToMap("ReceiverParty-Schema", recParty.getSchema(), attributes);
 			}
 		}
+		
 		if(config.collectReferenceID()) {
 			String refId = data.getReferenceID();
 			addToMap("ReferenceID", refId, attributes);
 		}
+		
 		if(config.collectRetries()) {
 			int retries = data.getRetries();
 			addToMap("Retries", retries, attributes);
 		}
+		
 		if(config.collectRetryInterval()) {
 			long retryInterval = data.getRetryInterval();
 			addToMap("RetryInterval", retryInterval, attributes);
 		}
+		
 		if(config.collectRootID()) {
 			String rootId = data.getRootID();
 			addToMap("RootID", rootId, attributes);
 		}
+		
 		if(config.collectScenarioIdentifier()) {
 			String scenerioIdent = data.getScenarioIdentifier();
 			addToMap("ScenarioIdentifier", scenerioIdent, attributes);
 		}
+		
 		if(config.collectScheduleTime()) {
 			Date scheduleTime = data.getScheduleTime();
 			addToMap("ScheduleTime", scheduleTime, attributes);
 		}
+		
 		MessageInterface senderInterface = data.getSenderInterface();
 		LinkedHashMap<String, Object> senderAttrs = getMapForSenderMessageInterface(senderInterface);
 		if(senderAttrs != null && !senderAttrs.isEmpty()) {
 			attributes.putAll(senderAttrs);
 		}
+		
 		if(config.collectSenderName()) {
 			String senderName = data.getSenderName();
 			addToMap("SenderName", senderName, attributes);
 		}
+		
 		if(config.collectSenderParty_all()) {
 			MessageParty senderParty = data.getSenderParty();
 			addToMap("SenderParty-Name", senderParty.getName(), attributes);
@@ -278,58 +368,73 @@ public class MessageMonitor implements Runnable {
 				addToMap("SenderParty-Schema", senderParty.getSchema(), attributes);
 			}
 		}
+		
 		if(config.collectSequenceID()) {
 			String seqId = data.getSequenceID();
 			addToMap("SequenceID", seqId, attributes);
 		}
+		
 		if(config.collectSequenceNumber()) {
 			Long seqNum = data.getSequenceNumber();
 			addToMap("SequenceNumber", seqNum, attributes);
 		}
+		
 		if(config.collectSerializationContext()) {
 			String serializationCtx = data.getSerializationContext();
 			addToMap("SerializationContext", serializationCtx, attributes);
 		}
-		if(config.collectServiceDef()) {
+		
+		if(config.collectServiceDefinition()) {
 			String serviceDef = data.getServiceDefinition();
-			addToMap("ServiceDef", serviceDef, attributes);
+			addToMap("ServiceDefinition", serviceDef, attributes);
 		}
+		
 		if(config.collectSize()) {
 			long size = data.getSize();
 			addToMap("Size", size, attributes);
 		}
+		
 		if(config.collectSoftwareComponent()) {
 			String swComponent = data.getSoftwareComponent();
 			addToMap("SoftwareComponent", swComponent, attributes);
 		}
+		
 		if(config.collectStartTime()) {
 			Date startTime = data.getStartTime();
 			addToMap("StartTime", startTime, attributes);
 		}
+		
 		if(config.collectStatus()) {
 			String status = data.getStatus();
 			addToMap("Status", status, attributes);
 		}
+		
 		if(config.collectTimesFailed()) {
 			long timesFailed = data.getTimesFailed();
 			addToMap("TimesFailed", timesFailed, attributes);
 		}
+		
 		if(config.collectTransport()) {
 			String transport = data.getTransport();
 			addToMap("Transport", transport, attributes);
 		}
+		
 		if(config.collectValidUntil()) {
 			Date validUntil = data.getValidUntil();
 			addToMap("ValidUntil", validUntil, attributes);
 		}
+		
 		if(config.collectVersion()) {
 			String version = data.getVersion();
 			addToMap("Version", version, attributes);
 		}
-		if(config.collectBusinessMessage()) {
-			BooleanAttribute busMsg = data.getBusinessMessage();
-			if(busMsg != null) {
-				addToMap("BusinessMessage", busMsg.getValue(), attributes);
+		
+		if(config.collectWasEdited()) {
+			BooleanAttribute wasEdited = data.getWasEdited();
+			if(wasEdited != null) {
+				addToMap("WasEdited", wasEdited.getValue(), attributes);
+			} else {
+				addToMap("WasEdited", NOT_REPORTED, attributes);
 			}
 		}
 
@@ -433,12 +538,16 @@ public class MessageMonitor implements Runnable {
 					String sValue = (String) value;
 					if (!sValue.isEmpty()) {
 						attributes.put(key, sValue);
+					} else {
+						attributes.put(key, EMPTY_STRING);
 					}
+				} else if(value instanceof BooleanAttribute) {
+					attributes.put(key, ((BooleanAttribute)value).getValue());
 				} else {
 					attributes.put(key, value);
 				} 
 			} else {
-				attributes.put(key, "Not_Reported");
+				attributes.put(key, NOT_REPORTED);
 			}
 		}
 

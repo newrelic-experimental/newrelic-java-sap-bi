@@ -20,16 +20,18 @@ public class AttributeConfig extends TimerTask {
 	private static final String CONFIGFILENAME = "adapter-message-config.json";
 
 	private boolean ApplicationComponent = false;
+	private boolean Cancelable = false;
 	private boolean ConnectionName = true;
 	private boolean CorrelationId = false;
 	private boolean Direction = false;
 	private boolean Duration = false;
+	private boolean Editable = false;
 	private boolean Endpoint = false;
 	private boolean EndTime= true;
 	private boolean ErrorCategory = false;
 	private boolean ErrorCode = false;
 	private boolean ErrorLabel = false;
-
+	private boolean Headers = false;
 	private boolean Interface_all = false;
 	private boolean Interface_name = false;
 	private boolean Interface_namespace = false;
@@ -45,6 +47,12 @@ public class AttributeConfig extends TimerTask {
 	private boolean NodeId = false;
 	private boolean ParentId = false;
 	private boolean Passport = false;
+	private boolean PassportConnectionCounter;
+	private boolean PassportTID;
+	private boolean PassportConnectionID;
+	private boolean PassportRootContextID;
+	private boolean PassportPreviousComponent;
+	private boolean PayloadPermissionWarning;
 	private boolean PersistUntil = false;
 	private boolean Protocol = true;
 	private boolean QualityOfService = false;
@@ -81,7 +89,7 @@ public class AttributeConfig extends TimerTask {
 	private boolean SequenceID = false;
 	private boolean SequenceNumber = false;
 	private boolean SerializationContext = false;
-	private boolean ServiceDef = false;
+	private boolean ServiceDefinition = false;
 	private boolean Size = false;
 	private boolean SoftwareComponent = false;
 	private boolean StartTime = false;
@@ -90,6 +98,7 @@ public class AttributeConfig extends TimerTask {
 	private boolean Transport = false;
 	private boolean ValidUntil = false;
 	private boolean Version = false;
+	private boolean WasEdited = false;
 	private boolean BusinessMessage = false;
 	private static AttributeConfig INSTANCE = null;
 	private static File configFile;
@@ -145,69 +154,127 @@ public class AttributeConfig extends TimerTask {
 	public boolean collectApplicationComponent() {
 		return ApplicationComponent;
 	}
+	
+	public boolean collectCancelable() {
+		return Cancelable;
+	}
+	
 	public boolean collectConnectionName() {
 		return ConnectionName;
 	}
+	
 	public boolean collectCorrelationId() {
 		return CorrelationId;
 	}
+	
 	public boolean collectDirection() {
 		return Direction;
 	}
+	
 	public boolean collectDuration() {
 		return Duration;
 	}
+	
 	public boolean collectEndpoint() {
 		return Endpoint;
 	}
+	
 	public boolean collectEndTime() {
 		return EndTime;
 	}
+	
 	public boolean collectErrorCategory() {
 		return ErrorCategory;
 	}
+	
 	public boolean collectErrorCode() {
 		return ErrorCode;
 	}
+	
+	public boolean collectEditable() {
+		return Editable;
+	}
+	
 	public boolean collectErrorLabel() {
 		return ErrorLabel;
 	}
-	public boolean collectPersistent() {
+	
+	public boolean collectHeaders() {
+		return Headers;
+	}
+	
+	public boolean collectIsPersistent() {
 		return IsPersistent;
 	}
+	
 	public boolean collectMessageId() {
 		return MessageId;
 	}
+	
 	public boolean collectMessageKey() {
 		return MessageKey;
 	}
+	
 	public boolean collectMessagePriority() {
 		return MessagePriority;
 	}
+	
 	public boolean collectMessageType() {
 		return MessageType;
 	}
+	
 	public boolean collectNodeId() {
 		return NodeId;
 	}
+	
 	public boolean collectParentId() {
 		return ParentId;
 	}
+	
 	public boolean collectPassport() {
 		return Passport;
 	}
+	
+	public boolean collectPassportConnectionCounter() {
+		return PassportConnectionCounter;
+	}
+	
+	public boolean collectPassportConnectionID() {
+		return PassportConnectionID;
+	}
+	
+	public boolean collectPassportPreviousComponent() {
+		return PassportPreviousComponent;
+	}
+	
+	public boolean collectPassportTID() {
+		return PassportTID;
+	}
+	
+	public boolean collectPassportRootContextID() {
+		return PassportRootContextID;
+	}
+	
+	public boolean collectPayloadPermissionWarning() {
+		return PayloadPermissionWarning;
+	}
+
 	public boolean collectPersistUntil() {
 		return PersistUntil;
 	}
+	
 	public boolean collectProtocol() {
 		return Protocol;
 	}
+	
 	public boolean collectQualityOfService() {
 		return QualityOfService;
 	}
+	
 	public boolean collectReceiverName() {
 		return ReceiverName;
 	}
+	
 	public boolean collectReceiverParty_all() {
 		return ReceiverParty_all;
 	}
@@ -243,63 +310,83 @@ public class AttributeConfig extends TimerTask {
 	public boolean collectReferenceID() {
 		return ReferenceID;
 	}
+	
 	public boolean collectRetries() {
 		return Retries;
 	}
+	
 	public boolean collectRetryInterval() {
 		return RetryInterval;
 	}
+	
 	public boolean collectRootID() {
 		return RootID;
 	}
+	
 	public boolean collectScenarioIdentifier() {
 		return ScenarioIdentifier;
 	}
+	
 	public boolean collectScheduleTime() {
 		return ScheduleTime;
 	}
+	
 	public boolean collectSenderName() {
 		return SenderName;
 	}
+	
 	public boolean collectSenderPartyAll() {
 		return SenderParty_all;
 	}
+	
 	public boolean collectSequenceID() {
 		return SequenceID;
 	}
+	
 	public boolean collectSequenceNumber() {
 		return SequenceNumber;
 	}
+	
 	public boolean collectSerializationContext() {
 		return SerializationContext;
 	}
-	public boolean collectServiceDef() {
-		return ServiceDef;
+	
+	public boolean collectServiceDefinition() {
+		return ServiceDefinition;
 	}
+	
 	public boolean collectSize() {
 		return Size;
 	}
+	
 	public boolean collectSoftwareComponent() {
 		return SoftwareComponent;
 	}
+	
 	public boolean collectStartTime() {
 		return StartTime;
 	}
+	
 	public boolean collectStatus() {
 		return Status;
 	}
+	
 	public boolean collectTimesFailed() {
 		return TimesFailed;
 	}
+	
 	public boolean collectTransport() {
 		return Transport;
 	}
+	
 	public boolean collectValidUntil() {
 		return ValidUntil;
 	}
+	
 	public boolean collectVersion() {
 		return Version;
 	}
+	
 	public boolean collectBusinessMessage() {
 		return BusinessMessage;
 	}
@@ -387,6 +474,10 @@ public class AttributeConfig extends TimerTask {
 	public boolean collectSenderInterface_senderParty() {
 		return SenderInterface_senderParty;
 	}
+	
+	public boolean collectWasEdited() {
+		return WasEdited;
+	}
 
 	@Override
 	public void run() {
@@ -434,7 +525,7 @@ public class AttributeConfig extends TimerTask {
 				+ ", SenderParty_all=" + SenderParty_all + ", SenderParty_name=" + SenderParty_name
 				+ ", SenderParty_agency=" + SenderParty_agency + ", SenderParty_schema=" + SenderParty_schema
 				+ ", SequenceID=" + SequenceID + ", SequenceNumber=" + SequenceNumber + ", SerializationContext="
-				+ SerializationContext + ", ServiceDef=" + ServiceDef + ", Size=" + Size + ", SoftwareComponent="
+				+ SerializationContext + ", ServiceDef=" + ServiceDefinition + ", Size=" + Size + ", SoftwareComponent="
 				+ SoftwareComponent + ", StartTime=" + StartTime + ", Status=" + Status + ", TimesFailed=" + TimesFailed
 				+ ", Transport=" + Transport + ", ValidUntil=" + ValidUntil + ", Version=" + Version
 				+ ", BusinessMessage=" + BusinessMessage + "]";
@@ -506,7 +597,7 @@ public class AttributeConfig extends TimerTask {
 		map.put("SequenceID",SequenceID);
 		map.put("SequenceNumber",SequenceNumber);
 		map.put("SerializationContext",SerializationContext);
-		map.put("ServiceDef",ServiceDef);
+		map.put("ServiceDef",ServiceDefinition);
 		map.put("Size",Size);
 		map.put("SoftwareComponent",SoftwareComponent);
 		map.put("StartTime",StartTime);
