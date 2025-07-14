@@ -31,6 +31,20 @@ This component will replicate the entries that SAP collects in the Audit Log.
 | log_file_count | Integer - Number of archive log files to keep | 3 |
 | ignores | String - comma seperated list of text keys to ignore (not report to the log) | None |
 
+## Adapter Message Log Component ##
+This component monitors and logs adapter message by querying on a regular basis for messages that have been active since the last query.    
+For details on what is collected see https://github.com/newrelic-experimental/newrelic-java-sap-bi/blob/add_adapter_logging/Logs/Adapter-Message-Logging.md   
+### Settings ###
+| Setting | Description | Default Value |
+| ------- | ----------- | ------------- |
+| enabled | Boolean value - whether to generate the adapter message log or not | true |
+| log_file_name | String - full path that is used to create and write that log file | adapter_message.log in the New Relic Agent directory |
+| log_file_interval | Integer - number of minutes between rolling the log file | 60 minutes (1 hour) |
+| log_size_limit | String - Size indentifer decrribed above | 100 KB |
+| log_file_count | Integer - Number of archive log files to keep | 3 |
+| frequency | Integer - Number of minutes between queries | 3 |
+| delay | Integer - Number of minutes before running the first query | 1 |
+
 ## Message Log Component ##
 This component will replicate the entries that SAP collects in the Message Log.  
 ### Settings ###
