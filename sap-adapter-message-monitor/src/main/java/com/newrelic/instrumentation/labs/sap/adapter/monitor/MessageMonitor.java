@@ -2,7 +2,9 @@ package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -12,16 +14,28 @@ import java.util.logging.Level;
 import com.newrelic.agent.deps.com.google.gson.Gson;
 import com.newrelic.api.agent.Logger;
 import com.newrelic.api.agent.NewRelic;
-import com.sap.aii.mdt.api.data.BooleanAttribute;
-import com.sap.aii.mdt.api.data.DurationAttribute;
-import com.sap.aii.mdt.api.data.MessageInterface;
-import com.sap.aii.mdt.api.data.MessageParty;
-import com.sap.aii.mdt.server.adapterframework.ws.AdapterFilter;
-import com.sap.aii.mdt.server.adapterframework.ws.AdapterFrameworkData;
-import com.sap.aii.mdt.server.adapterframework.ws.BusinessAttribute;
-import com.sap.aii.mdt.server.adapterframework.ws.MessageSearchReturnValue;
-import com.sap.aii.mdt.server.adapterframework.ws.OperationFailedException;
-import com.sap.aii.mdt.server.adapterframework.ws.esiext.XIWSMessageMonitoring;
+import com.newrelic.instrumentation.labs.sap.adapter.monitor.data.MessageInterface;
+import com.newrelic.instrumentation.labs.sap.adapter.monitor.data.MessageParty;
+import com.sap.engine.interfaces.messaging.api.APIAccess;
+import com.sap.engine.interfaces.messaging.api.APIAccessFactory;
+import com.sap.engine.interfaces.messaging.api.Action;
+import com.sap.engine.interfaces.messaging.api.DeliverySemantics;
+import com.sap.engine.interfaces.messaging.api.Message;
+import com.sap.engine.interfaces.messaging.api.MessageKey;
+import com.sap.engine.interfaces.messaging.api.MessageStatus;
+import com.sap.engine.interfaces.messaging.api.Party;
+import com.sap.engine.interfaces.messaging.api.Service;
+import com.sap.engine.interfaces.messaging.api.exception.MessageFormatException;
+import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
+import com.sap.engine.interfaces.messaging.api.message.MessageAccess;
+import com.sap.engine.interfaces.messaging.api.message.MessageAccessException;
+import com.sap.engine.interfaces.messaging.api.message.MessageData;
+import com.sap.engine.interfaces.messaging.api.message.MessageDataFilter;
+import com.sap.engine.interfaces.messaging.api.message.MonitorData;
+import com.sap.engine.interfaces.messaging.spi.KeyFields;
+import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
+//import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
+import com.sap.engine.interfaces.messaging.spi.transport.TransportHeaders;
 
 public class MessageMonitor implements Runnable {
 
@@ -34,6 +48,17 @@ public class MessageMonitor implements Runnable {
 	private static long delay = 1;
 	private static final String NOT_REPORTED = "Not_Reported";
 	private static final String EMPTY_STRING = "Empty_String";
+	private static APIAccess apiAccess = null;
+
+	private static APIAccess getAPIAccess() {
+		if(apiAccess == null) {
+			try {
+				apiAccess = APIAccessFactory.getAPIAccess();
+			} catch (MessagingException e) {
+			}
+		}
+		return apiAccess;
+	}
 
 	private MessageMonitor() {
 	}
@@ -54,29 +79,32 @@ public class MessageMonitor implements Runnable {
 		long startTime = System.currentTimeMillis();
 		NewRelic.recordMetric("SAP/AdapterMessageMonitor/Enter",1.0f);
 		Logger LOGGER = NewRelic.getAgent().getLogger();
-		Date start = new Date();
+		Date end = new Date();
 
-		AdapterFilter filter = new AdapterFilter();
-		filter.setFromTime(last);
-		filter.setToTime(start);
-
-		Integer maxMessages = new Integer(1000);
 
 		try {
-			MessageSearchReturnValue msgList = XIWSMessageMonitoring.getMessageList(filter, maxMessages);
-			AdapterFrameworkData[] adapterFWData = msgList.getList();
-			NewRelic.recordMetric("SAP/AdapterMessageMonitor/AdapterFrameworkData",adapterFWData != null ? adapterFWData.length : 0);
+			MessageAccess messageAccess = getAPIAccess().getMessageAccess();
+			MessageDataFilter filter = messageAccess.createMessageDataFilter();
+			filter.setStartDate(last);
+			filter.setEndDate(end);
 
-			for(AdapterFrameworkData data : adapterFWData) {
-				String jsonString = getLogJson(data);				
+			MonitorData monitorData = messageAccess.getMonitorData(filter);
+			int count = monitorData.getTotalMessageCount();
+			NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess",count);
+			LinkedList<MessageData> messageDataList = monitorData.getMessageData();
+
+			for(MessageData data : messageDataList) {
+				MessageKey msgKey = data.getMessageKey();
+				Map<String, String> messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
+				String jsonString = getLogJson(data, messageAttributes);
 				AdapterMessageLogger.log(jsonString);
 			}
 
-		} catch (OperationFailedException e) {
+		} catch (Exception e) {
 			LOGGER.log(Level.FINE, e, "Failed to get message list");
 		}
 
-		last = start;
+		last = end;
 
 		NewRelic.recordMetric("SAP/AdapterMessageMonitor/Exit", 1.0f);
 		long endTime = System.currentTimeMillis();
@@ -106,199 +134,236 @@ public class MessageMonitor implements Runnable {
 	}
 
 
-	private static String getLogJson(AdapterFrameworkData data) {
+	private static String getLogJson(MessageData msgdata, Map<String,String> currentAttributes) {
 		LinkedHashMap<String, Object> attributes = new LinkedHashMap<String, Object>();
 		AttributeConfig config = AttributeConfig.getInstance();
+		MessageKey messageKey = msgdata.getMessageKey();
+		Message message = null;
 
-		if(config.collectApplicationComponent()) {
-			String appComp = data.getApplicationComponent();
-			addToMap("ApplicationComponent", appComp, attributes);
+		String softComponent = "";
+		String appComponent = "";
+		String svcDefinition = "";
+
+		try {
+			message = getAPIAccess().getMessageAccess().getMessage(messageKey);
+			if(message instanceof TransportableMessage) {
+				TransportableMessage tMessage = (TransportableMessage)message;
+				TransportHeaders transportHeaders = tMessage.getTransportHeaders();
+				svcDefinition = (String)transportHeaders.getHeader("ms:ServiceDefinition");
+				appComponent = (String)transportHeaders.getHeader("ms:ApplicationComponent");
+				softComponent = (String)transportHeaders.getHeader("ms:SoftwareComponent");
+
+			}
+		} catch (MessageAccessException | MessageFormatException e) {
+			NewRelic.getAgent().getLogger().log(Level.FINER, "Failed to get message due to Message Exception for MessageKey{0}, error message: {1)}", messageKey, e.getMessage());
+		}
+
+		if(config.collectApplicationComponent()) {			
+			addToMap("ApplicationComponent", appComponent, attributes);
 		}
 
 		if(config.collectBusinessMessage()) {
-			BooleanAttribute busMsg = data.getBusinessMessage();
-				addToMap("BusinessMessage", busMsg.getValue(), attributes);
+			Boolean busMsg = Boolean.FALSE;
+			addToMap("BusinessMessage", busMsg, attributes);
 		}
 
 		if(config.collectCancelable()) {
-			BooleanAttribute cancelable = data.getCancelable();
-			if(cancelable != null) {
-				addToMap("Cancelable", cancelable.getValue(), attributes);
+			MessageStatus status = msgdata.getStatus();
+			Boolean cancelable = null;
+			if(status == null) {
+				cancelable = Boolean.FALSE;
 			} else {
-				addToMap("Cancelable", NOT_REPORTED, attributes);
+				cancelable = !status.equals(MessageStatus.HOLDING) && !status.equals(MessageStatus.TO_BE_DELIVERED)
+						&& !status.equals(MessageStatus.WAITING) && !status.equals(MessageStatus.NON_DELIVERED)
+						? Boolean.FALSE
+								: Boolean.TRUE;
 			}
+			addToMap("Cancelable", cancelable, attributes);
 		}
-		
+
 		if(config.collectConnectionName()) {
-			String connName = data.getConnectionName();
+			String connName = msgdata.getConnectionName();
 			addToMap("ConnectionName", connName, attributes);
 		}
 
 		if(config.collectCorrelationId()) {
-			String corrId = data.getCorrelationID();
+			String corrId = msgdata.getCorrelationID();
 			addToMap("CorrelationID", corrId, attributes);
 		}
-		
+
 		if(config.collectDirection()) {
-			String direction = data.getDirection();
+			String direction = msgdata.getMessageKey().getDirection().toString();
 			addToMap("Direction", direction, attributes);
 		}
-		
+
 		if(config.collectDuration()) {
-			DurationAttribute duration = data.getDuration();
-			addToMap("Duration", duration.getDuration(), attributes);
+			Date startTime = msgdata.getSentReceiveTime();
+			Date endTime = msgdata.getTransmitDeliverTime();
+			Long duration = null;
+			if(startTime != null && endTime != null && endTime.after(startTime)) {
+				duration = endTime.getTime() - startTime.getTime();
+			}
+			addToMap("Duration", duration, attributes);
 		}
-		
+
 		if(config.collectEditable()) {
-			BooleanAttribute editable = data.getEditable();
-			if(editable != null) {
-				addToMap("Editable", editable.getValue(), attributes);
+			MessageStatus status = msgdata.getStatus();
+			Boolean editable = null;
+			if(status == null) {
+				editable = Boolean.FALSE;
 			} else {
-				addToMap("Editable", NOT_REPORTED, attributes);
-			} 
+				editable = MessageStatus.NON_DELIVERED.equals(status) ? "XI".equalsIgnoreCase(msgdata.getProtocol()) ? Boolean.TRUE : Boolean.FALSE : Boolean.FALSE;
+			}
+			addToMap("Editiable", editable, attributes);
 		}
-		
+
 		if(config.collectEndpoint()) {
-			String endPt = data.getEndpoint();
-			addToMap("Endpoint", endPt, attributes);
+			addToMap("Endpoint", msgdata.getAddress(), attributes);
 		}
-		
+
 		if(config.collectEndTime()) {
-			Date endTime = data.getEndTime();
-			addToMap("EndTime", endTime, attributes);
+			addToMap("EndTime", msgdata.getTransmitDeliverTime(), attributes);
 		}
-		
+
 		if(config.collectErrorCategory()) {
-			String errorCat = data.getErrorCategory();
+			String errorCat = msgdata.getErrorCategory();
 			addToMap("ErrorCategory", errorCat, attributes);
 		}
-		
+
 		if(config.collectErrorCode()) {
-			String errorCode = data.getErrorCode();
+			String errorCode = msgdata.getErrorCode();
 			addToMap("ErrorCode", errorCode, attributes);
 		}
-		
+
 		if(config.collectErrorLabel()) {
-			int errLabel = data.getErrorLabel();
-			addToMap("ErrorLabel", errLabel, attributes);
+			//			int errLabel = data.getErrorLabel();
+			addToMap("ErrorLabel", NOT_REPORTED, attributes);
 		}
-		
+
 		if(config.collectHeaders()) {
-			String headers = data.getHeaders();
+			String headers = msgdata.getHeaders();
 			addToMap("Headers", headers, attributes);
 		}
-		
-		MessageInterface msgInterface = data.getInterface();
+
+		KeyFields keyFields = msgdata.getKeyFields();
+		MessageInterface msgInterface = getMessageInterface(keyFields);
+
+
 		LinkedHashMap<String, Object> interfaceAttrs = getMapForMessageInterface(msgInterface);
 		if(interfaceAttrs != null && !interfaceAttrs.isEmpty()) {
 			attributes.putAll(interfaceAttrs);
 		}
-		
+
 		if(config.collectIsPersistent()) {
-			boolean isPerst = data.getIsPersistent();
+			boolean isPerst =  msgdata.isPersistent();
 			addToMap("IsPersistent", isPerst, attributes);
 		}
-		
+
 		if(config.collectMessageId()) {
-			String msgId = data.getMessageID();
+			String msgId = msgdata.getMessageID();
 			addToMap("MessageId", msgId, attributes);
 		}
-		
+
 		if(config.collectMessageKey()) {
-			String msgKey = data.getMessageKey();
+			String msgKey = msgdata.getMessageKey().toString();
 			addToMap("MessageKey", msgKey, attributes);
 		}
-		
+
 		if(config.collectMessagePriority()) {
-			int msgPriority = data.getMessagePriority();
+			int msgPriority = msgdata.getMessagePriority().getValue();
 			addToMap("MessagePriority", msgPriority, attributes);
 		}
-		
+
 		if(config.collectMessageType()) {
-			String msgType = data.getMessageType();
+			String msgType = msgdata.getType().toString();
 			addToMap("MessageType", msgType, attributes);
 		}
-		
+
 		if(config.collectNodeId()) {
-			int nodeId = data.getNodeId();
+			int nodeId = msgdata.getNodeId();
 			addToMap("NodeId", nodeId, attributes);
 		}
-		
+
 		if(config.collectParentId()) {
-			String parentID = data.getParentID();
+			String parentID = msgdata.getParentID();
 			addToMap("ParentId", parentID, attributes);
 		}
-		
+
 		if(config.collectPassport()) {
-			String passport = data.getPassport();
+			String passport = msgdata.getPassport();
 			addToMap("Passport", passport, attributes);
 		}
-		
+
 		if(config.collectPassportConnectionCounter()) {
-			int connectionCounter = data.getPassportConnectionCounter();
+			int connectionCounter = msgdata.getPassportConnectionCounter();
 			addToMap("PassportConnectionCounter", connectionCounter, attributes);
 		}
-		
+
 		if(config.collectPassportConnectionID()) {
-			String connectionCounterID = data.getPassportConnectionID();
+			String connectionCounterID = msgdata.getPassportConnectionID();
 			addToMap("PassportConnectionID", connectionCounterID, attributes);
 		}
-		
+
 		if(config.collectPassportPreviousComponent()) {
-			String previousComp = data.getPassportPreviousComponent();
+			String previousComp = msgdata.getPassportPreviousComponent();
 			addToMap("PassportPreviousComponent", previousComp, attributes);
 		}
-		
+
 		if(config.collectPassportRootContextID()) {
-			String rootID = data.getPassportRootContextID();
+			String rootID = msgdata.getPassportRootContextID();
 			addToMap("PassportRootContextID", rootID, attributes);
 		}
-		
+
 		if(config.collectPassportTID()) {
-			String tid = data.getPassportTID();
+			String tid = msgdata.getPassportTID();
 			addToMap("PassportTID", tid, attributes);
 		}
-		
+
 		if(config.collectPayloadPermissionWarning()) {
-			boolean payloadWarning = data.getPayloadPermissionWarning();
-			addToMap("PayloadPermissionWarning", payloadWarning, attributes);
+			//boolean payloadWarning = data.getPayloadPermissionWarning();
+			addToMap("PayloadPermissionWarning", NOT_REPORTED, attributes);
 		}
-		
+
 		if(config.collectPersistUntil()) {
-			Date persistUntil = data.getPersistUntil();
-			
+			Date persistUntil = new Date(msgdata.getPersistUntil());
+
 			addToMap("PersistUntil", persistUntil, attributes);
 		}
 		if(config.collectProtocol()) {
-			String protocol = data.getProtocol();
+			String protocol = msgdata.getProtocol();
 			addToMap("Protocol", protocol, attributes);
 		}
-		
+
 		if(config.collectQualityOfService()) {
-			String qos = data.getQualityOfService();
+			String qos = null;
+
+			DeliverySemantics deliverySematics = msgdata.getDeliverySemantics();
+			if(deliverySematics != null) {
+				qos = deliverySematics.toString();
+			}
 			addToMap("QualityOfService", qos, attributes);
 		}
-		
-		MessageInterface receiverInterface = data.getReceiverInterface();
+
+		MessageInterface receiverInterface = msgInterface;
 		LinkedHashMap<String, Object> recAttrs = getMapForReceiverMessageInterface(receiverInterface);
 		if(recAttrs != null && !recAttrs.isEmpty()) {
 			attributes.putAll(recAttrs);
 		}
 
 		if(config.collectReceiverName()) {
-			String receiverName = data.getReceiverName();
+			String receiverName = msgInterface != null ? msgInterface.getReceiverComponent() : null;
 			addToMap("ReceiverName", receiverName, attributes);
 		}
-		
+
 		if(config.collectReceiverParty_all()) {
-			MessageParty recParty = data.getReceiverParty();
+			MessageParty recParty = new MessageParty(keyFields.getToParty().getName());
 
 			addToMap("ReceiverParty-Name", recParty.getName(), attributes);
 			addToMap("ReceiverParty-Agency", recParty.getAgency(), attributes);
 			addToMap("ReceiverParty-Schema", recParty.getSchema(), attributes);
 		} else {
+			MessageParty recParty = new MessageParty(keyFields.getToParty().getName());
 			// check if we need to collect one of the attributes
-			MessageParty recParty = data.getReceiverParty();
 			if(config.collectReceiverParty_name()) {
 				addToMap("ReceiverParty-Name", recParty.getName(), attributes);
 			}
@@ -309,55 +374,55 @@ public class MessageMonitor implements Runnable {
 				addToMap("ReceiverParty-Schema", recParty.getSchema(), attributes);
 			}
 		}
-		
+
 		if(config.collectReferenceID()) {
-			String refId = data.getReferenceID();
+			String refId = msgdata.getRefToMsgID();
 			addToMap("ReferenceID", refId, attributes);
 		}
-		
+
 		if(config.collectRetries()) {
-			int retries = data.getRetries();
+			int retries = msgdata.getRetries();
 			addToMap("Retries", retries, attributes);
 		}
-		
+
 		if(config.collectRetryInterval()) {
-			long retryInterval = data.getRetryInterval();
+			long retryInterval = msgdata.getRetryInterval();
 			addToMap("RetryInterval", retryInterval, attributes);
 		}
-		
+
 		if(config.collectRootID()) {
-			String rootId = data.getRootID();
+			String rootId = msgdata.getRootID();
 			addToMap("RootID", rootId, attributes);
 		}
-		
+
 		if(config.collectScenarioIdentifier()) {
-			String scenerioIdent = data.getScenarioIdentifier();
+			String scenerioIdent = msgdata.getScenarioIdentifier();
 			addToMap("ScenarioIdentifier", scenerioIdent, attributes);
 		}
-		
+
 		if(config.collectScheduleTime()) {
-			Date scheduleTime = data.getScheduleTime();
+			Date scheduleTime = msgdata.getNextDeliveryTime();
 			addToMap("ScheduleTime", scheduleTime, attributes);
 		}
-		
-		MessageInterface senderInterface = data.getSenderInterface();
+
+		MessageInterface senderInterface = msgInterface;
 		LinkedHashMap<String, Object> senderAttrs = getMapForSenderMessageInterface(senderInterface);
 		if(senderAttrs != null && !senderAttrs.isEmpty()) {
 			attributes.putAll(senderAttrs);
 		}
-		
+
 		if(config.collectSenderName()) {
-			String senderName = data.getSenderName();
+			String senderName = msgInterface != null ? msgInterface.getReceiverParty() : null;
 			addToMap("SenderName", senderName, attributes);
 		}
-		
+
 		if(config.collectSenderParty_all()) {
-			MessageParty senderParty = data.getSenderParty();
+			MessageParty senderParty = new MessageParty(keyFields.getFromParty().getName());
 			addToMap("SenderParty-Name", senderParty.getName(), attributes);
 			addToMap("SenderParty-Agency", senderParty.getAgency(), attributes);
 			addToMap("SenderParty-Schema", senderParty.getSchema(), attributes);
 		} else {
-			MessageParty senderParty = data.getSenderParty();
+			MessageParty senderParty = new MessageParty(keyFields.getFromParty().getName());
 			if(config.collectSenderParty_name()) {
 				addToMap("SenderParty-Name", senderParty.getName(), attributes);
 			}
@@ -368,83 +433,101 @@ public class MessageMonitor implements Runnable {
 				addToMap("SenderParty-Schema", senderParty.getSchema(), attributes);
 			}
 		}
-		
+
 		if(config.collectSequenceID()) {
-			String seqId = data.getSequenceID();
+			String seqId = msgdata.getSequenceID();
 			addToMap("SequenceID", seqId, attributes);
 		}
-		
+
 		if(config.collectSequenceNumber()) {
-			Long seqNum = data.getSequenceNumber();
+			Long seqNum = msgdata.getSequenceNumber();
 			addToMap("SequenceNumber", seqNum, attributes);
 		}
-		
+
 		if(config.collectSerializationContext()) {
-			String serializationCtx = data.getSerializationContext();
+			String serializationCtx = msgdata.getSerializationContext();
 			addToMap("SerializationContext", serializationCtx, attributes);
 		}
-		
+
 		if(config.collectServiceDefinition()) {
-			String serviceDef = data.getServiceDefinition();
-			addToMap("ServiceDefinition", serviceDef, attributes);
+			addToMap("ServiceDefinition", svcDefinition, attributes);
 		}
-		
+
 		if(config.collectSize()) {
-			long size = data.getSize();
+			long size = msgdata.getMessageSize();
 			addToMap("Size", size, attributes);
 		}
-		
+
 		if(config.collectSoftwareComponent()) {
-			String swComponent = data.getSoftwareComponent();
-			addToMap("SoftwareComponent", swComponent, attributes);
+			addToMap("SoftwareComponent", softComponent, attributes);
 		}
-		
+
 		if(config.collectStartTime()) {
-			Date startTime = data.getStartTime();
+			Date startTime = msgdata.getSentReceiveTime();
 			addToMap("StartTime", startTime, attributes);
 		}
-		
+
 		if(config.collectStatus()) {
-			String status = data.getStatus();
+			String status = msgdata.getStatus().toString();
 			addToMap("Status", status, attributes);
 		}
-		
+
 		if(config.collectTimesFailed()) {
-			long timesFailed = data.getTimesFailed();
+			long timesFailed = msgdata.getTimesFailed();
 			addToMap("TimesFailed", timesFailed, attributes);
 		}
-		
+
 		if(config.collectTransport()) {
-			String transport = data.getTransport();
+			String transport = msgdata.getTransport().toString();
 			addToMap("Transport", transport, attributes);
 		}
-		
+
 		if(config.collectValidUntil()) {
-			Date validUntil = data.getValidUntil();
+			Date validUntil = new Date(msgdata.getValidUntil());
 			addToMap("ValidUntil", validUntil, attributes);
 		}
-		
+
 		if(config.collectVersion()) {
-			String version = data.getVersion();
+			int version = msgdata.getVersionNumber();
 			addToMap("Version", version, attributes);
 		}
-		
+
 		if(config.collectWasEdited()) {
-			BooleanAttribute wasEdited = data.getWasEdited();
-			if(wasEdited != null) {
-				addToMap("WasEdited", wasEdited.getValue(), attributes);
-			} else {
-				addToMap("WasEdited", NOT_REPORTED, attributes);
-			}
+			boolean wasEdited = msgdata.wasEdited();
+			addToMap("WasEdited", wasEdited, attributes);
 		}
 
-		BusinessAttribute[] busAttrs = data.getBusinessAttributes();
-		if(busAttrs != null) {
-			for(BusinessAttribute busAttr : busAttrs) {
-				addToMap("BusinessAttribute-"+busAttr.getName(), busAttr.getValue(), attributes);
+
+		if(config.collectingUserAttributes()) {
+			if(currentAttributes != null && !currentAttributes.isEmpty()) {
+				Set<String> keys = currentAttributes.keySet();
+				for(String key : keys) {
+					if (config.collectUserAttribute(key)) {
+						String value = currentAttributes.get(key);
+						if (value == null)
+							value = NOT_REPORTED;
+						addToMap("Attribute-" + key, value, attributes);
+//					} else if(key.startsWith(AttributeChecker.CONTEXT_STRING)) {
+//						String key1 = key.substring((AttributeChecker.CONTEXT_STRING).length());
+//						if (config.collectUserAttribute(key1)) {
+//							String value = currentAttributes.get(key);
+//							if (value == null)
+//								value = NOT_REPORTED;
+//							addToMap("Attribute-" + key, value, attributes);
+//						}
+//					} else if(key.startsWith(AttributeChecker.SUPPLEMENTAL_STRING)) {
+//						String key1 = key.substring((AttributeChecker.SUPPLEMENTAL_STRING).length());
+//						if (config.collectUserAttribute(key1)) {
+//							String value = currentAttributes.get(key);
+//							if (value == null)
+//								value = NOT_REPORTED;
+//							addToMap("Attribute-" + key, value, attributes);
+//						}
+					}
+
+				}
 			}
 		}
-
 		Gson gson = new Gson();
 
 		return gson.toJson(attributes);
@@ -476,6 +559,7 @@ public class MessageMonitor implements Runnable {
 		}
 		return null;
 	}
+
 
 	private static LinkedHashMap<String,Object> getMapForReceiverMessageInterface(MessageInterface msgInterface) {
 		AttributeConfig config = AttributeConfig.getInstance();
@@ -541,8 +625,6 @@ public class MessageMonitor implements Runnable {
 					} else {
 						attributes.put(key, EMPTY_STRING);
 					}
-				} else if(value instanceof BooleanAttribute) {
-					attributes.put(key, ((BooleanAttribute)value).getValue());
 				} else {
 					attributes.put(key, value);
 				} 
@@ -551,6 +633,23 @@ public class MessageMonitor implements Runnable {
 			}
 		}
 
+	}
+
+	private static MessageInterface getMessageInterface(KeyFields keyFields) {
+		Action action = keyFields.getAction();
+		if(action != null) {
+			MessageInterface receiverInterface = new MessageInterface(action.getType(),action.getName());
+			Party senderParty = keyFields.getFromParty();
+			receiverInterface.setSenderParty(senderParty.toString());
+			Party receiverParty = keyFields.getToParty();
+			receiverInterface.setReceiverParty(receiverParty.toString());
+			Service senderService = keyFields.getFromService();
+			receiverInterface.setSenderComponent(senderService.toString());
+			Service receiverService = keyFields.getToService();
+			receiverInterface.setReceiverComponent(receiverService.toString());
+			return receiverInterface;
+		}
+		return null;
 	}
 
 }

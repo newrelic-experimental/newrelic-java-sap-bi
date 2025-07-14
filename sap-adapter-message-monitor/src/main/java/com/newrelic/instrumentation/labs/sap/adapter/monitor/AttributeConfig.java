@@ -5,7 +5,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
@@ -100,6 +102,8 @@ public class AttributeConfig extends TimerTask {
 	private boolean Version = false;
 	private boolean WasEdited = false;
 	private boolean BusinessMessage = false;
+	private Set<String> UserAttributesToCollect = new HashSet<String>();
+	
 	private static AttributeConfig INSTANCE = null;
 	private static File configFile;
 	private static boolean usingDefault = false;
@@ -484,6 +488,14 @@ public class AttributeConfig extends TimerTask {
 	public boolean collectWasEdited() {
 		return WasEdited;
 	}
+	
+	public boolean collectUserAttribute(String name) {
+		return UserAttributesToCollect.contains(name);
+	}
+	
+	public boolean collectingUserAttributes() {
+		return !UserAttributesToCollect.isEmpty();
+	}
 
 	@Override
 	public void run() {
@@ -541,12 +553,13 @@ public class AttributeConfig extends TimerTask {
 				+ SerializationContext + ", ServiceDef=" + ServiceDefinition + ", Size=" + Size + ", SoftwareComponent="
 				+ SoftwareComponent + ", StartTime=" + StartTime + ", Status=" + Status + ", TimesFailed=" + TimesFailed
 				+ ", Transport=" + Transport + ", ValidUntil=" + ValidUntil + ", Version=" + Version
-				+ ", BusinessMessage=" + BusinessMessage + "]";
+				+ ", BusinessMessage=" + BusinessMessage
+				+ ", UserAttributesToCollect=" + UserAttributesToCollect + "]";
 	}
 	
-	public Map<String,Boolean> configurationMap() {
+	public Map<String,Object> configurationMap() {
 		
-		Map<String, Boolean> map = new HashMap<String, Boolean>();
+		Map<String, Object> map = new HashMap<String, Object>();
 		
 		map.put("ApplicationComponent",ApplicationComponent);
 		map.put("ConnectionName",ConnectionName);
@@ -620,6 +633,7 @@ public class AttributeConfig extends TimerTask {
 		map.put("ValidUntil",ValidUntil);
 		map.put("Version",Version);
 		map.put("BusinessMessage",BusinessMessage);
+		map.put("UserAttributesToCollect",UserAttributesToCollect);
 		
 		return map;
 		
