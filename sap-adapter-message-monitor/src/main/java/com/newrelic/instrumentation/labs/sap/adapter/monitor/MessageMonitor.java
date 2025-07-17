@@ -89,9 +89,9 @@ public class MessageMonitor implements Runnable {
 			filter.setEndDate(end);
 
 			MonitorData monitorData = messageAccess.getMonitorData(filter);
-			int count = monitorData.getTotalMessageCount();
-			NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess",count);
 			LinkedList<MessageData> messageDataList = monitorData.getMessageData();
+			int count = messageDataList.size();
+			NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess",count);
 
 			for(MessageData data : messageDataList) {
 				MessageKey msgKey = data.getMessageKey();
@@ -502,27 +502,21 @@ public class MessageMonitor implements Runnable {
 			if(currentAttributes != null && !currentAttributes.isEmpty()) {
 				Set<String> keys = currentAttributes.keySet();
 				for(String key : keys) {
-					if (config.collectUserAttribute(key)) {
-						String value = currentAttributes.get(key);
+					String mKey = key.toLowerCase().trim();
+					String tmp = "modulecontext-";
+					if(mKey.startsWith(tmp)) {
+						mKey = mKey.replace(tmp, "");
+					}
+					tmp = "SupplementalData-".toLowerCase();
+					if(mKey.startsWith(tmp)) {
+						mKey = mKey.replace(tmp, "");
+					}
+					
+					if (config.collectUserAttribute(mKey)) {
+						String value = currentAttributes.get(key.toLowerCase());
 						if (value == null)
 							value = NOT_REPORTED;
 						addToMap("Attribute-" + key, value, attributes);
-//					} else if(key.startsWith(AttributeChecker.CONTEXT_STRING)) {
-//						String key1 = key.substring((AttributeChecker.CONTEXT_STRING).length());
-//						if (config.collectUserAttribute(key1)) {
-//							String value = currentAttributes.get(key);
-//							if (value == null)
-//								value = NOT_REPORTED;
-//							addToMap("Attribute-" + key, value, attributes);
-//						}
-//					} else if(key.startsWith(AttributeChecker.SUPPLEMENTAL_STRING)) {
-//						String key1 = key.substring((AttributeChecker.SUPPLEMENTAL_STRING).length());
-//						if (config.collectUserAttribute(key1)) {
-//							String value = currentAttributes.get(key);
-//							if (value == null)
-//								value = NOT_REPORTED;
-//							addToMap("Attribute-" + key, value, attributes);
-//						}
 					}
 
 				}

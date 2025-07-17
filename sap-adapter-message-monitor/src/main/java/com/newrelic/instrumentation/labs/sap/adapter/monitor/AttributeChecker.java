@@ -59,7 +59,7 @@ public class AttributeChecker extends Thread {
 						String key = keys.nextElement().toString();
 						String value = moduleContext.getContextData(key);
 						if (value != null) {
-							values.put(key, value);
+							values.put(key.toLowerCase(), value);
 						}
 					}
 				}
@@ -67,7 +67,7 @@ public class AttributeChecker extends Thread {
 				while(supplementalNames.hasMoreElements()) {
 					String key = supplementalNames.nextElement().toString();
 					Object value = moduleData.getSupplementalData(key);
-					values.put(key, value.toString());
+					values.put(key.toLowerCase(), value.toString());
 				}
 				if(messageKey != null && values != null && !values.isEmpty()) {
 					AttributeProcessor.setAttributes(messageKey, values);

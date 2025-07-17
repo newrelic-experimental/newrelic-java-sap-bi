@@ -66,6 +66,7 @@ public class AttributeProcessor {
 			}
 			
 		}
+		NewRelic.recordMetric("SAP/AttributeProcessor/CurrentTrackedMessages", message_Attributes.size());
 	}
 
 	public static void record(ModuleContext moduleContext, ModuleData moduleData) {
