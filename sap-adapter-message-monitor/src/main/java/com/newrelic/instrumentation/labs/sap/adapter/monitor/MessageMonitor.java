@@ -96,6 +96,8 @@ public class MessageMonitor implements Runnable {
 			for(MessageData data : messageDataList) {
 				MessageKey msgKey = data.getMessageKey();
 				Map<String, String> messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
+				int size = messageAttributes != null ? messageAttributes.size() : 0;
+				NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved",size);
 				String jsonString = getLogJson(data, messageAttributes);
 				AdapterMessageLogger.log(jsonString);
 			}
@@ -139,7 +141,7 @@ public class MessageMonitor implements Runnable {
 		AttributeConfig config = AttributeConfig.getInstance();
 		MessageKey messageKey = msgdata.getMessageKey();
 		Message message = null;
-
+		
 		String softComponent = "";
 		String appComponent = "";
 		String svcDefinition = "";
@@ -516,7 +518,7 @@ public class MessageMonitor implements Runnable {
 						String value = currentAttributes.get(key.toLowerCase());
 						if (value == null)
 							value = NOT_REPORTED;
-						addToMap("Attribute-" + key, value, attributes);
+						addToMap("Attribute-" + key.trim(), value, attributes);
 					}
 
 				}

@@ -496,6 +496,10 @@ public class AttributeConfig extends TimerTask {
 	public boolean collectingUserAttributes() {
 		return !UserAttributesToCollect.isEmpty();
 	}
+	
+	public Set<String> attributesToCollect() {
+		return UserAttributesToCollect;
+	}
 
 	@Override
 	public void run() {

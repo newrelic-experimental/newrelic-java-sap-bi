@@ -1,5 +1,5 @@
 
-// Build.gradle generated for instrumentation module sap-adapter-message-monitor
+// Build.gradle generated for instrumentation module sap-adapter-message-monitor-3
 
 apply plugin: 'java'
 
