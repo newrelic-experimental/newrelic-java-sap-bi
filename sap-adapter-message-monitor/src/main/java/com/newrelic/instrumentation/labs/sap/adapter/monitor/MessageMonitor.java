@@ -1,6 +1,7 @@
 package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -95,7 +96,12 @@ public class MessageMonitor implements Runnable {
 
 			for(MessageData data : messageDataList) {
 				MessageKey msgKey = data.getMessageKey();
-				Map<String, String> messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
+				Map<String, String> messageAttributes = null;
+				try {
+					messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
+				} catch (Exception e) {
+					
+				}
 				int size = messageAttributes != null ? messageAttributes.size() : 0;
 				NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved",size);
 				String jsonString = getLogJson(data, messageAttributes);
@@ -501,28 +507,48 @@ public class MessageMonitor implements Runnable {
 
 
 		if(config.collectingUserAttributes()) {
-			if(currentAttributes != null && !currentAttributes.isEmpty()) {
-				Set<String> keys = currentAttributes.keySet();
-				for(String key : keys) {
-					String mKey = key.toLowerCase().trim();
-					String tmp = "modulecontext-";
-					if(mKey.startsWith(tmp)) {
-						mKey = mKey.replace(tmp, "");
-					}
-					tmp = "SupplementalData-".toLowerCase();
-					if(mKey.startsWith(tmp)) {
-						mKey = mKey.replace(tmp, "");
-					}
-					
-					if (config.collectUserAttribute(mKey)) {
-						String value = currentAttributes.get(key.toLowerCase());
-						if (value == null)
-							value = NOT_REPORTED;
-						addToMap("Attribute-" + key.trim(), value, attributes);
-					}
-
+			Set<String> toCollect = config.attributesToCollect();
+			Set<String> currentKeys = currentAttributes != null ? currentAttributes.keySet() : new HashSet<String>();
+			Set<String> modifedKeys = new HashSet<String>();
+			
+			for(String key : currentKeys) {
+				String mKey = key.toLowerCase().trim();
+				String keyToUse = key;
+				
+				String tmp = "modulecontext-";
+				if(mKey.startsWith(tmp)) {
+					keyToUse = key.substring(tmp.length());
 				}
+				tmp = "SupplementalData-".toLowerCase();
+				if(mKey.startsWith(tmp)) {
+					keyToUse = key.substring(tmp.length());
+				}
+				modifedKeys.add(keyToUse.toLowerCase());
 			}
+			
+			for(String attribute : toCollect) {
+				String mKey = attribute.toLowerCase().trim();
+				String keyToUse = attribute.trim();
+				String tmp = "modulecontext-";
+				if(mKey.startsWith(tmp)) {
+					keyToUse = attribute.substring(tmp.length());
+				}
+				tmp = "SupplementalData-".toLowerCase();
+				if(mKey.startsWith(tmp)) {
+					keyToUse = attribute.substring(tmp.length());
+				}
+				keyToUse = keyToUse.toLowerCase();
+				
+				if(modifedKeys.contains(keyToUse)) {
+					String value = currentAttributes.get(keyToUse);
+					addToMap(attribute.trim(), value, attributes);
+				} else {
+					addToMap(attribute.trim(), NOT_REPORTED, attributes);
+				}
+				
+			}
+			
+
 		}
 		Gson gson = new Gson();
 

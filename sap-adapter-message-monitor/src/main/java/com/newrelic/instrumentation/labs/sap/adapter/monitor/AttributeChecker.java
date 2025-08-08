@@ -44,16 +44,9 @@ public class AttributeChecker extends Thread {
 				ModuleData moduleData = holder.moduleData;
 				long start = System.currentTimeMillis();
 				Map<String, String> values = new LinkedHashMap<String, String>();
-				Object principalData = moduleData.getPrincipalData();
-				MessageKey messageKey = null;
-				if(principalData != null) {
-					if(principalData instanceof Message) {
-						Message message = (Message)principalData;
-						messageKey = message.getMessageKey();
-					}
-				}
-				if (messageKey != null) {
-
+				if (moduleContext != null) {
+					String channelId = moduleContext.getChannelID();
+					values.put("ChannelId", channelId);
 					Enumeration keys = moduleContext.getContextDataKeys();
 					while (keys.hasMoreElements()) {
 						String key = keys.nextElement().toString();
@@ -61,6 +54,14 @@ public class AttributeChecker extends Thread {
 						if (value != null) {
 							values.put(key.toLowerCase(), value);
 						}
+					} 
+				}
+				Object principalData = moduleData.getPrincipalData();
+				MessageKey messageKey = null;
+				if(principalData != null) {
+					if(principalData instanceof Message) {
+						Message message = (Message)principalData;
+						messageKey = message.getMessageKey();
 					}
 				}
 				Enumeration supplementalNames = moduleData.getSupplementalDataNames();

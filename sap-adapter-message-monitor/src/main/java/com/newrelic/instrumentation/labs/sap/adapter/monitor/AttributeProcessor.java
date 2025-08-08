@@ -12,8 +12,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -33,13 +35,19 @@ public class AttributeProcessor {
 	private static final int HOURS_BETWEEN_PURGES = 4;
 	private static final String MESSAGEID_COLUMN = "MESSAGEID";
 	private static final String MESSAGEATTRIBUTES_COLUMN = "MESSAGE_ATTRIBUTES";
+	private static final String ATTRIBUTE_NAME_COLUMN = "ATTRIBUTE_NAME";
+	private static final String ATTRIBUTE_VALUE_COLUMN = "ATTRIBUTE_VALUE";
+	
 	private static final String LAST_MODIFIED_COLUMN = "LAST_MODIFIED";
 	
 	protected static final String TABLE_NAME = "NR_ADAPTER_ATTRIBUTES";
-	private static final String INSERT_QUERY = "INSERT INTO " + TABLE_NAME + "(" + MESSAGEID_COLUMN +"," + MESSAGEATTRIBUTES_COLUMN + "," + LAST_MODIFIED_COLUMN +") VALUES(?,?,?)";
-	private static final String SELECT_QUERY = "SELECT " + MESSAGEATTRIBUTES_COLUMN + " FROM " + TABLE_NAME + " WHERE " + MESSAGEID_COLUMN +"=?";
-	private static final String UPDATE_QUERY = "UPDATE " + TABLE_NAME + " SET " + MESSAGEATTRIBUTES_COLUMN +"=?, "+ LAST_MODIFIED_COLUMN + "=?"+ " WHERE " + MESSAGEID_COLUMN + "=?";
+	private static final String INSERT_QUERY = "INSERT INTO " + TABLE_NAME + "(" + MESSAGEID_COLUMN +"," + ATTRIBUTE_NAME_COLUMN + "," + ATTRIBUTE_VALUE_COLUMN + "," + LAST_MODIFIED_COLUMN +") VALUES(?,?,?,?)";
+	private static final String SELECT_QUERY = "SELECT " + ATTRIBUTE_NAME_COLUMN + "," + ATTRIBUTE_VALUE_COLUMN + " FROM " + TABLE_NAME + " WHERE " + MESSAGEID_COLUMN +"=?";
+	private static final String UPDATE_QUERY = "UPDATE " + TABLE_NAME + " SET " + ATTRIBUTE_VALUE_COLUMN +"=?, "+ LAST_MODIFIED_COLUMN + "=?"+ " WHERE " + MESSAGEID_COLUMN + "=? AND " + ATTRIBUTE_NAME_COLUMN + "=?";
 	private static final String DELETE_QUERY = "DELETE FROM " + TABLE_NAME + "  WHERE " + LAST_MODIFIED_COLUMN + " < ?";
+	private static final String CREATE_SQL = "CREATE TABLE " + TABLE_NAME + "(" + MESSAGEID_COLUMN + " VARCHAR(255) NOT NULL, " + ATTRIBUTE_NAME_COLUMN 
+			+ " VARCHAR(255) NOT NULL, " + ATTRIBUTE_VALUE_COLUMN +  " VARCHAR(255) NOT NULL, " + LAST_MODIFIED_COLUMN + " TIMESTAMP NOT NULL)";
+	private static final String DROP_TABLE_SQL = "DROP TABLE " + TABLE_NAME;
 	private static Integer id = 1;
 	private static boolean loggedDBType = false;
 	private static Method prepareDirectStatementMethod1 = null;
@@ -68,7 +76,7 @@ public class AttributeProcessor {
 				NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to get table size");
 				logErrorWithMessage("Failed to get table size",e);
 			}
-		}, 20, 60, TimeUnit.SECONDS);
+		}, 180, 60, TimeUnit.SECONDS);
 	}
 	
 	private static synchronized void initialize() {
@@ -79,6 +87,7 @@ public class AttributeProcessor {
 			try {
 				DatabaseMetaData dbMetaData = connection.getMetaData();
 				boolean found = false;
+				boolean recreateTable = false;
 				if(dbMetaData != null) {
 					ResultSet tables;
 					try {
@@ -89,9 +98,25 @@ public class AttributeProcessor {
 						    if (tableName.equalsIgnoreCase(TABLE_NAME)) { // Important for case-insensitive databases
 						        found = true;
 						        logMessage("Found table " + tableName);
+						        ResultSet columns = dbMetaData.getColumns(null, null, TABLE_NAME, null);
+						        Set<String> columnNames = new HashSet<String>();
+						        
+						        while(columns.next()) {
+						        	String columnName = columns.getString("COLUMN_NAME");
+						        	columnNames.add(columnName.toLowerCase());
+						        }
+						        boolean hasAttributeName = columnNames.contains(ATTRIBUTE_NAME_COLUMN.toLowerCase());
+						        boolean hasAttributeValue = columnNames.contains(ATTRIBUTE_VALUE_COLUMN.toLowerCase());
+						        boolean hasMessageAttributes = columnNames.contains(MESSAGEATTRIBUTES_COLUMN.toLowerCase());
+						        recreateTable = hasMessageAttributes || !hasAttributeName || !hasAttributeValue;
+						        if(recreateTable) {
+						        	logMessage("Found table " + tableName + " and need to recreate");
+						        } else {
+						        	logMessage("Found table " + tableName + " and do not need to recreate");
+						        }
+						        
 						        break;
 						    }
-						
 						}
 						tables.close();
 					} catch (SQLException e) {
@@ -102,12 +127,21 @@ public class AttributeProcessor {
 						logger.log(Level.FINE, "{0} does not exist, creating", TABLE_NAME);
 				        logMessage("table " + TABLE_NAME + " does not exist, creating");
 						try {
-							createTable();
+							createTable(connection);
 							initialized = true;
 						} catch (SQLException e) {
 							logger.log(Level.FINER, e, "Failed while trying create table {0}",TABLE_NAME);
 							logErrorWithMessage("Failed to create table " + TABLE_NAME,e);
 						}
+					} else if(recreateTable) {
+						try {
+							dropTable(connection);
+							createTable(connection);
+							initialized = true;
+						} catch (Exception e) {
+							logErrorWithMessage("Failed to recreate table " + TABLE_NAME,e);
+						}
+						
 					} else {
 						logger.log(Level.FINE, "{0} exists", TABLE_NAME);
 				        logMessage("table " + TABLE_NAME + " exists");
@@ -122,13 +156,16 @@ public class AttributeProcessor {
 		}
 	}
 	
-	private static void createTable() throws SQLException {
-		String createSQL = "CREATE TABLE NR_ADAPTER_ATTRIBUTES(MESSAGEID VARCHAR(50) NOT NULL PRIMARY KEY, MESSAGE_ATTRIBUTES VARCHAR(500) NOT NULL, LAST_MODIFIED TIMESTAMP NOT NULL)";
-		Connection connection = ConnectionManager.getInstance().getNoTXDBConnection();
-		Statement stmt = getPreparedStatement(connection, createSQL);
-		stmt.execute(createSQL);
+	private static void createTable(Connection connection) throws SQLException {
+		Statement stmt = connection.createStatement();
+		stmt.executeUpdate(CREATE_SQL);
 		NewRelic.getAgent().getLogger().log(Level.FINE, "Created table {0}",TABLE_NAME);
-		connection.close();
+	}
+
+	private static void dropTable(Connection connection) throws SQLException {
+		Statement stmt = connection.createStatement();
+		stmt.executeUpdate(DROP_TABLE_SQL);
+		NewRelic.getAgent().getLogger().log(Level.FINE, "Dropped table {0}",TABLE_NAME);
 	}
 
 	private static void purgeOldAttributes() {
@@ -155,7 +192,8 @@ public class AttributeProcessor {
 		}
 	}
 
-	protected static void setAttributes(MessageKey messageKey, Map<String,String> attributes) {
+	protected static synchronized void setAttributes(MessageKey messageKey, Map<String,String> attributes) {
+		long startTime = System.nanoTime();
 		
 		if(!initialized) {
 			initialize();
@@ -178,12 +216,14 @@ public class AttributeProcessor {
 				queryStatement.setString(1, messageKey.getMessageId());
 				ResultSet existing = queryStatement.executeQuery();
 				boolean hasExisting = false;
-				String existingAttributes = null;
+				Map<String, String> existingAttributes = new HashMap<String, String>();
 				while(existing.next()) {
 					hasExisting = true;
-					existingAttributes = existing.getString(MESSAGEATTRIBUTES_COLUMN);
-					logMessage("Retrived existing attributes for message id " +messageKey.getMessageId() + ": "+ existingAttributes);
+					String name = existing.getString(ATTRIBUTE_NAME_COLUMN);
+					String value = existing.getString(ATTRIBUTE_VALUE_COLUMN);
+					existingAttributes.put(name, value);
 				}
+				logMessage("Retrived existing attributes for message id " +messageKey.getMessageId() + ": "+ existingAttributes);
 				existing.close();
 				try {
 					queryStatement.close();
@@ -192,36 +232,75 @@ public class AttributeProcessor {
 				}
 	
 				if(hasExisting) {
-					Map<String, String> existingMap = stringToMap(existingAttributes);
-					logMessage("Found existing attributes for message id " + messageKey.getMessageId() + ": " + existingMap);
-					attributes.putAll(existingMap);
+					logMessage("Found existing attributes for message id " + messageKey.getMessageId() + ": " + existingAttributes);
 					PreparedStatement updateStatement = getPreparedStatement(conn,UPDATE_QUERY);
-					updateStatement.setString(1, attributes.toString());
+					PreparedStatement insertStatement = getPreparedStatement(conn,INSERT_QUERY);
 					Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-					updateStatement.setTimestamp(2, timestamp);
-					updateStatement.setString(3, messageKey.getMessageId());
-					updateStatement.executeUpdate();
+					boolean modified = false;
+					
+					for(String attribute : attributes.keySet()) {
+						if(existingAttributes.containsKey(attribute)) {
+							String value = existingAttributes.get(attribute);
+							String inValue = attributes.get(attribute);
+							// Only update if value has changed
+							if(!value.toLowerCase().equals(inValue.toLowerCase())) {
+								updateStatement.clearParameters();
+								updateStatement.setString(1, inValue);
+								updateStatement.setTimestamp(2, timestamp);
+								updateStatement.setString(3, messageKey.getMessageId());
+								updateStatement.setString(4, attribute);
+								updateStatement.executeUpdate();
+								modified = true;
+							}
+						} else {
+							// new attribute 
+							String value = attributes.get(attribute);
+							insertStatement.clearParameters();
+							insertStatement.setString(1, messageKey.getMessageId());
+							insertStatement.setString(2, attribute);
+							insertStatement.setString(3, value);
+							insertStatement.setTimestamp(4, timestamp);
+							insertStatement.executeUpdate();
+							modified = true;
+						}
+					}
 					try {
 						updateStatement.close();
+						
 					} catch (SQLException e) {
 						logErrorWithMessage("Failed to close update statement while updating existing attributes", e);
 					}
-					logMessage("Updated attributes for message id " + messageKey.getMessageId() + " to: " + attributes);
-					NewRelic.recordMetric("SAP/AttributeProcessor/UpdatedAttributes", 1.0f);
+					try {
+						insertStatement.close();
+						
+					} catch (SQLException e) {
+						logErrorWithMessage("Failed to close update statement while updating existing attributes", e);
+					}
+					if (modified) {
+						Map<String, String> all = new HashMap<String, String>();
+						all.putAll(attributes);
+						all.putAll(existingAttributes);
+						logMessage("Updated attributes for message id " + messageKey.getMessageId() + " to: " + all);
+						NewRelic.recordMetric("SAP/AttributeProcessor/UpdatedAttributes", 1.0f);
+					} else {
+						logMessage("Attributes for message id " + messageKey.getMessageId() + " were identical to existing");
+					}
 	
 				} else {
 					PreparedStatement insertStatement = getPreparedStatement(conn,INSERT_QUERY);
-	
+					Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+
 					synchronized (id) {
-						insertStatement.setString(1, messageKey.getMessageId());
-						insertStatement.setString(2, attributes.toString());
-						Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-						insertStatement.setTimestamp(3, timestamp);
-						int updated = insertStatement.executeUpdate();
-						if(updated > 0) {
-							NewRelic.recordMetric("SAP/AttributeProcessor/InsertedAttributes", 1.0f);
-							logMessage("Inserted attributes for message id " + messageKey.getMessageId() + " to: " + attributes);
+						for(String attribute : attributes.keySet()) {
+							String value = attributes.get(attribute);
+							insertStatement.clearParameters();
+							insertStatement.setString(1, messageKey.getMessageId());
+							insertStatement.setString(2, attribute);
+							insertStatement.setString(3, value);
+							insertStatement.setTimestamp(4, timestamp);
+							insertStatement.executeUpdate();
 						}
+						logMessage("Inserted attributes for message id " + messageKey.getMessageId() + " to: " + attributes);
 					}
 	
 					try {
@@ -235,7 +314,8 @@ public class AttributeProcessor {
 				logErrorWithMessage("Failed to close update statement while inserting attributes", e);
 			}
 		}
-
+		long endTime = System.nanoTime();
+		NewRelic.recordMetric("SAP/AttributeProcessor/SetAttributesTimer(ms)", (endTime-startTime)/1000000.0f);
 	}
 
 	public static void record(ModuleContext moduleContext, ModuleData moduleData) {
@@ -254,9 +334,11 @@ public class AttributeProcessor {
 			
 			pstmt.setString(1, messageKey.getMessageId());
 			ResultSet rs = pstmt.executeQuery();
-			if(rs.next()) {
-				String attrs = rs.getString(MESSAGEATTRIBUTES_COLUMN);
-				attributes = stringToMap(attrs);
+			while(rs.next()) {
+				String name = rs.getString(ATTRIBUTE_NAME_COLUMN);
+				String value = rs.getString(ATTRIBUTE_VALUE_COLUMN);
+				attributes.put(name, value);
+				
 				logMessage("Retrieved attributes for message id " + messageKey.getMessageId() + ": " + attributes);
 			}
 			rs.close();
@@ -280,22 +362,6 @@ public class AttributeProcessor {
 		return attributes;
 	}
 
-	private static Map<String, String> stringToMap(String attrs) {
-		Map<String,String> attributes = new LinkedHashMap<String, String>();
-		if(attrs != null) {
-			attrs = attrs.replace("{","").replace("}", "");
-			String[] pairs = attrs.split(",");
-			for(String pair : pairs) {
-				String[] entry = pair.split("=");
-				if(entry.length == 2) {
-					attributes.put(entry[0], entry[1]);
-				}
-			}
-		}
-		
-		return attributes;
-	}
-	
 	private static void setWrappedConnection(Class<?> clazz) {
 		try {
 			getWrappedConnectionMethod = clazz.getDeclaredMethod("getWrappedConnection", new Class<?>[] {});
