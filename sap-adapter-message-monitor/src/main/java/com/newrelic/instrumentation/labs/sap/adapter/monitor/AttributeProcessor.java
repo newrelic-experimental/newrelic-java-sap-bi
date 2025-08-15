@@ -11,8 +11,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -23,8 +25,10 @@ import java.util.logging.Level;
 
 import com.newrelic.api.agent.Logger;
 import com.newrelic.api.agent.NewRelic;
+import com.sap.aii.adapter.xi.ms.XIMessage;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.lib.mp.module.ModuleData;
+import com.sap.aii.af.sdk.xi.mo.MessageContext;
 import com.sap.aii.af.service.db.ConnectionManager;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 
@@ -57,7 +61,13 @@ public class AttributeProcessor {
 	private static final String CommonConnectionImpl_Class = "com.sap.sql.jdbc.common.CommonConnectionImpl";
 	private static final String CommonConnectionHandle_Class = "com.sap.engine.services.dbpool.cci.CommonConnectionHandle";
 	private static final String CommonPooledConnection_Class = "com.sap.sql.jdbc.common.CommonPooledConnection";
-
+	public static final String MESSAGEID = "MessageId";
+	public static final String INPUT = "Input";
+	public static final String OUTPUT = "Output";
+	public static final String MESSAGE = "Message";
+	
+	public static final String MAP_TYPE = "MapType";
+	
 	static {
 		ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 		executorService.scheduleAtFixedRate(() -> {purgeOldAttributes();}, HOURS_BETWEEN_PURGES, HOURS_BETWEEN_PURGES, TimeUnit.HOURS);
@@ -201,7 +211,7 @@ public class AttributeProcessor {
 
 		if(attributes == null || attributes.isEmpty()) return;
 		NewRelic.recordMetric("SAP/AttributeProcessor/AttributesToProcess", attributes.size());
-		logMessage("Processing attributes for message id "+ messageKey.getMessageId() + ": " + attributes);
+		logMessage("Checking to insert 0r update attributes for message id "+ messageKey.getMessageId() + ": " + attributes);
 
 		Connection conn = null;
 		try {
@@ -317,12 +327,46 @@ public class AttributeProcessor {
 		long endTime = System.nanoTime();
 		NewRelic.recordMetric("SAP/AttributeProcessor/SetAttributesTimer(ms)", (endTime-startTime)/1000000.0f);
 	}
-
+	
+	@SuppressWarnings("rawtypes")
+	public static void recordObject(Object requestMessage) {
+		
+		if(requestMessage instanceof XIMessage) {
+			XIMessage xiMessage = (XIMessage)requestMessage;
+			MessageKey msgKey = xiMessage.getMessageKey();
+			MessageContext msgCtx = xiMessage.getMessageContext();
+			Hashtable<String, String> in_attributes = new Hashtable<String, String>();
+			
+			Enumeration inkeys = msgCtx.getAttributeKeys(0);
+			while(inkeys.hasMoreElements()) {
+				String key = inkeys.nextElement().toString();
+				Object value = msgCtx.getAttribute(key, 0);
+				in_attributes.put(key, value.toString());
+			}
+			if(!in_attributes.isEmpty()) {
+				in_attributes.put(AttributeProcessor.MAP_TYPE, AttributeProcessor.INPUT);
+				AttributeChecker.addDataToQueue(new MapDataHolder(msgKey, in_attributes));
+			}
+			Enumeration outkeys = msgCtx.getAttributeKeys(1);
+			Hashtable<String, String> out_attributes = new Hashtable<String, String>();
+			while(outkeys.hasMoreElements()) {
+				String key = outkeys.nextElement().toString();
+				Object value = msgCtx.getAttribute(key, 1);
+				out_attributes.put(key, value.toString());
+			}
+			if(!out_attributes.isEmpty()) {
+				out_attributes.put(AttributeProcessor.MAP_TYPE, AttributeProcessor.OUTPUT);
+				AttributeChecker.addDataToQueue(new MapDataHolder(msgKey, out_attributes));
+			}
+			
+		}
+	}
+	
 	public static void record(ModuleContext moduleContext, ModuleData moduleData) {
 		if(!AttributeChecker.initialized) {
 			AttributeChecker.startChecker();
 		}
-		AttributeChecker.addDataToQueue(new DataHolder(moduleData, moduleContext));
+		AttributeChecker.addDataToQueue(new ModuleDataHolder(moduleData, moduleContext));
 	}
 
 	public static Map<String,String> getMessageAttributes(MessageKey messageKey) {

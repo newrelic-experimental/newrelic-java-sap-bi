@@ -1,19 +1,23 @@
-package com.sap.aii.af.lib.mp.module;
+package com.sap.aii.af.app.listener;
 
-import com.newrelic.api.agent.weaver.MatchType;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.AttributeProcessor;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.MessageMonitor;
+import com.sap.engine.interfaces.messaging.api.Message;
 
-@Weave(type = MatchType.Interface)
-public abstract class Module {
+@Weave
+public abstract class AFWListenerBean {
 
-	public ModuleData process(ModuleContext moduleContext, ModuleData moduleData) {
+	public AFWListenerBean() {
 		if(!MessageMonitor.initialized) {
 			MessageMonitor.initialize();
 		}
-		AttributeProcessor.record(moduleContext, moduleData);
-		return Weaver.callOriginal();
+
+	}
+	
+	public void onMessage(Message requestMessage) {
+		AttributeProcessor.recordObject(requestMessage);
+		Weaver.callOriginal();
 	}
 }

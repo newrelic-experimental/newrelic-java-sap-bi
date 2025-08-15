@@ -13,6 +13,7 @@ public class AdapterMonitorLogger {
 	public static boolean initialized = false;
 	private static Logger LOGGER = null;;
 	private static NRLabsLoggerHandler handler = null;
+	protected static boolean enabled = true;
 	
 	public static void init() {
 		
@@ -48,6 +49,8 @@ public class AdapterMonitorLogger {
 	}
 
 	public static void logMessage(String message) {
+		if(!enabled) return;
+		
 		if(!initialized) {
 			init();
 		}
@@ -57,6 +60,7 @@ public class AdapterMonitorLogger {
 	}
 	
 	public static void logError(Throwable t) {
+		if(!enabled) return;
 		if(!initialized) {
 			init();
 		}
@@ -66,6 +70,7 @@ public class AdapterMonitorLogger {
 	}
 	
 	public static void logErrorWithMessage(String message,Throwable t) {
+		if(!enabled) return;
 		if(!initialized) {
 			init();
 		}

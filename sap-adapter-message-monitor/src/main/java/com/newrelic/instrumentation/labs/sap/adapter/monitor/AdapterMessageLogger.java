@@ -24,6 +24,7 @@ public class AdapterMessageLogger implements AgentConfigListener {
 	protected static final String ADAPTERMSGLOGMENABLED = "SAP.adaptermessagelog.enabled";
 	protected static final String ADAPTERMSGLOGFREQUENCY = "SAP.adaptermessagelog.frequency";
 	protected static final String ADAPTERMSGLOGDELAY = "SAP.adaptermessagelog.delay";
+	protected static final String ADAPTER_MONITOR_LOGGING = "SAP.adaptermonitor.monitorlogging.enabled";
 	protected static final String log_file_name = "adapter_message.log";
 	private static MessageLoggingConfig currentConfig = null;
 	private static AdapterMessageLogger INSTANCE = null;
@@ -208,6 +209,12 @@ public class AdapterMessageLogger implements AgentConfigListener {
 		if(delay != null) {
 			messageLoggingConfig.setDelay(delay);
 		}
+		
+		Boolean monitorLggging = agentConfig.getValue(ADAPTER_MONITOR_LOGGING);
+		if(monitorLggging != null) {
+			AdapterMonitorLogger.enabled = monitorLggging;
+		}
+		
 		return messageLoggingConfig;
 
 	}
@@ -222,6 +229,10 @@ public class AdapterMessageLogger implements AgentConfigListener {
 		}
 		if(currentConfig.frequencyChanged(newConfig)) {
 			MessageMonitor.changeFrequncy(currentConfig.getFrequency());
+		}
+		Boolean monitorLggging = agentConfig.getValue(ADAPTER_MONITOR_LOGGING);
+		if(monitorLggging != null) {
+			AdapterMonitorLogger.enabled = monitorLggging;
 		}
 	}
 
