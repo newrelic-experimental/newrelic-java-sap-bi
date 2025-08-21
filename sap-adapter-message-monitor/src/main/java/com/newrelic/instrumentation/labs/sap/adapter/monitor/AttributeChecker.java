@@ -1,35 +1,50 @@
 package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
+import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 
 import com.newrelic.api.agent.NewRelic;
-import com.sap.aii.adapter.xi.ms.XIMessage;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.lib.mp.module.ModuleData;
-import com.sap.aii.af.sdk.xi.mo.MessageContext;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 
-public class AttributeChecker extends Thread {
+public class AttributeChecker implements Runnable {
 
 	public static boolean initialized = false;
 	
-	private static BlockingQueue<DataHolder> queue = new LinkedBlockingQueue<DataHolder>();
+	private static final int MAX = 100000;
+	private static BlockingQueue<DataHolder> queue = new LinkedBlockingQueue<DataHolder>(MAX);
 	
 	public static void addDataToQueue(DataHolder holder) {
-		queue.add(holder);
+		if(queue.remainingCapacity() < 100) {
+			List<DataHolder> temp = new ArrayList<DataHolder>();
+			int n = queue.drainTo(temp, 20000);
+			temp.clear();
+			AdapterMonitorLogger.logMessage("Removed " + n + " Dataholder entries due to capacity constraints");
+		}
+		boolean added = queue.add(holder);
+		if(!added) {
+			AdapterMonitorLogger.logMessage("Failed to add Dataholder to queue: " + holder);
+		}
 	}
 	
 	public static void startChecker() {
-		AttributeChecker checker = new AttributeChecker();
-		checker.start();
-		initialized = true;
+		try {
+			AttributeChecker checker = new AttributeChecker();
+			NewRelicExecutors.addRunnableToThreadPool(checker);
+			AdapterMonitorLogger.logMessage("AttributeChecker has been started");			
+			initialized = true;
+		} catch (Exception e) {
+			AdapterMonitorLogger.logErrorWithMessage("AttributeChecker failed to started",e);		
+			initialized = false;
+		}
 	}
 	
 	private AttributeChecker() {
@@ -39,10 +54,12 @@ public class AttributeChecker extends Thread {
 	@SuppressWarnings("rawtypes")
 	@Override
 	public void run() {
+		AdapterMonitorLogger.logMessage("Call to AttributeChecker.run()");
 		
 		while(true) {
 			try {
 				DataHolder holder = queue.take();
+				AdapterMonitorLogger.logMessage("Popped Dataholder off queue: " + holder);
 				
 				if (holder instanceof ModuleDataHolder) {
 					ModuleDataHolder moduleHolder = (ModuleDataHolder)holder;
@@ -80,67 +97,30 @@ public class AttributeChecker extends Thread {
 						} 
 						
 					}
+					if(principalData != null) {
+						Map<String,String> attributesFromMsg = AttributeProcessor.recordObject(principalData);
+						if(attributesFromMsg != null && !attributesFromMsg.isEmpty()) {
+							values.putAll(attributesFromMsg);
+						}
+					}
+
 					if (messageKey != null && values != null && !values.isEmpty()) {
 						AttributeProcessor.setAttributes(messageKey, values);
 					}
-					if(principalData != null) {
-						processMessageAttributes(principalData);
-					}
+					
+					MessageMonitor.addMessageKeyToProcess(messageKey);
 					
 					long end = System.currentTimeMillis();
 					NewRelic.recordMetric("/SAP/AttributeProcess/TimeToProcess", end - start);
-				} else if(holder instanceof MapDataHolder) {
-					MapDataHolder mapHolder = (MapDataHolder)holder;
-					Map<String, String> attributes = mapHolder.attributes;
-					MessageKey msgKey = mapHolder.messageKey;
-					AdapterMonitorLogger.logMessage("Processing attributes " + msgKey + " from Map: " + attributes);
-					AttributeProcessor.setAttributes(msgKey, attributes);
 				}
 			} catch (InterruptedException e) {
 				NewRelic.getAgent().getLogger().log(Level.FINER, e, "Error occurred trying to take holder from queue");
+				AdapterMonitorLogger.logErrorWithMessage("Error occurred trying to take holder from queue",e);			
 			}
 			
 		}
 		
 	}
 	
-	@SuppressWarnings("rawtypes")
-	private static void processMessageAttributes(Object principal) {
-		if(principal instanceof XIMessage) {
-			XIMessage xiMessage = (XIMessage)principal;
-			MessageKey messageKey = xiMessage.getMessageKey();
-			MessageContext messageContext = xiMessage.getMessageContext();
-			HashMap<String, String> input_attributes = new HashMap<String, String>();
-			Enumeration input_keys = messageContext.getAttributeKeys(0);
-			while(input_keys.hasMoreElements()) {
-				String key = input_keys.nextElement().toString();
-				Object valueObject = messageContext.getAttribute(key, 0);
-				
-				String value = valueObject != null ? valueObject.toString() : null;
-				if(value != null) {
-					input_attributes.put(key, value);
-				}
-			}
-			if(!input_attributes.isEmpty()) {
-				input_attributes.put(AttributeProcessor.MAP_TYPE, AttributeProcessor.INPUT);
-				AttributeProcessor.setAttributes(messageKey, input_attributes);
-			}
-			HashMap<String, String> output_attributes = new HashMap<String, String>();
-			Enumeration output_keys = messageContext.getAttributeKeys(1);
-			while(output_keys.hasMoreElements()) {
-				String key = output_keys.nextElement().toString();
-				Object valueObject = messageContext.getAttribute(key, 1);
-				
-				String value = valueObject != null ? valueObject.toString() : null;
-				if(value != null) {
-					output_attributes.put(key, value);
-				}
-			}
-			if(!output_attributes.isEmpty()) {
-				output_attributes.put(AttributeProcessor.MAP_TYPE, AttributeProcessor.OUTPUT);
-				AttributeProcessor.setAttributes(messageKey, output_attributes);
-			}
-			
-		}
-	}
+
 }

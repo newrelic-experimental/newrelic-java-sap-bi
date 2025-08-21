@@ -1,19 +1,17 @@
 package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 
 import com.newrelic.agent.deps.com.google.gson.Gson;
-import com.newrelic.api.agent.Logger;
 import com.newrelic.api.agent.NewRelic;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.data.MessageInterface;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.data.MessageParty;
@@ -35,21 +33,16 @@ import com.sap.engine.interfaces.messaging.api.message.MessageDataFilter;
 import com.sap.engine.interfaces.messaging.api.message.MonitorData;
 import com.sap.engine.interfaces.messaging.spi.KeyFields;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
-//import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
 import com.sap.engine.interfaces.messaging.spi.transport.TransportHeaders;
 
 public class MessageMonitor implements Runnable {
 
 	public static boolean initialized = false;
-	private static ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
 	private static MessageMonitor INSTANCE = null;
-	private static ScheduledFuture<?> scheduledFuture = null;
-	private static Date last = new Date(System.currentTimeMillis() - 5L * 60L * 1000L);
-	private static long frequency = 3;
-	private static long delay = 1;
 	private static final String NOT_REPORTED = "Not_Reported";
 	private static final String EMPTY_STRING = "Empty_String";
 	private static APIAccess apiAccess = null;
+	private static BlockingQueue<MessageKey> messageKeysToProcess = new LinkedBlockingQueue<MessageKey>();
 
 	private static APIAccess getAPIAccess() {
 		if(apiAccess == null) {
@@ -64,59 +57,45 @@ public class MessageMonitor implements Runnable {
 	private MessageMonitor() {
 	}
 
-	public static void changeFrequncy(long newFreq) {
-		if(newFreq == frequency) return;
-
-		frequency = newFreq;
-		if(scheduledFuture != null) {
-			scheduledFuture.cancel(true);
-		}
-		scheduledFuture = executor.scheduleAtFixedRate(INSTANCE, delay, frequency, TimeUnit.MINUTES);
-		NewRelic.getAgent().getLogger().log(Level.FINE, "Scheduled MessageMonitor to run every {0} minutes after an initial delay of {1} minutes", frequency, delay);
+	public static void addMessageKeyToProcess(MessageKey messageKey) { 
+		messageKeysToProcess.add(messageKey);
 	}
 
 	@Override
 	public void run() {
-		long startTime = System.currentTimeMillis();
-		NewRelic.recordMetric("SAP/AdapterMessageMonitor/Enter",1.0f);
-		Logger LOGGER = NewRelic.getAgent().getLogger();
-		Date end = new Date();
 
-
-		try {
-			MessageAccess messageAccess = getAPIAccess().getMessageAccess();
-			MessageDataFilter filter = messageAccess.createMessageDataFilter();
-			filter.setStartDate(last);
-			filter.setEndDate(end);
-
-			MonitorData monitorData = messageAccess.getMonitorData(filter);
-			LinkedList<MessageData> messageDataList = monitorData.getMessageData();
-			int count = messageDataList.size();
-			NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess",count);
-
-			for(MessageData data : messageDataList) {
-				MessageKey msgKey = data.getMessageKey();
-				Map<String, String> messageAttributes = null;
-				try {
-					messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
-				} catch (Exception e) {
-					
+		while(true) {
+			try {
+				MessageKey messageKey = messageKeysToProcess.take();
+				AdapterMonitorLogger.logMessage("In MessageMonitor, processing message key " + messageKey);
+				MessageAccess messageAccess = getAPIAccess().getMessageAccess();
+				MessageDataFilter filter = messageAccess.createMessageDataFilter();
+				String messageId = messageKey.getMessageId();
+				filter.setMessageId(messageId);
+				MonitorData monitorData = messageAccess.getMonitorData(filter);
+				LinkedList<MessageData> messageDataList = monitorData.getMessageData();
+				int count = messageDataList.size();
+				NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess",count);
+				for(MessageData data : messageDataList) {
+					MessageKey msgKey = data.getMessageKey();
+					Map<String, String> messageAttributes = null;
+					try {
+						messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
+					} catch (Exception e) {
+						
+					}
+					int size = messageAttributes != null ? messageAttributes.size() : 0;
+					NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved",size);
+					String jsonString = getLogJson(data, messageAttributes);
+					AdapterMessageLogger.log(jsonString);
 				}
-				int size = messageAttributes != null ? messageAttributes.size() : 0;
-				NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved",size);
-				String jsonString = getLogJson(data, messageAttributes);
-				AdapterMessageLogger.log(jsonString);
+				AdapterMonitorLogger.logMessage("In MessageMonitor, finished processing message key " + messageKey);
+				
+			} catch (Exception e) {
+				AdapterMonitorLogger.logErrorWithMessage("Error processing message key", e);
 			}
-
-		} catch (Exception e) {
-			LOGGER.log(Level.FINE, e, "Failed to get message list");
+			
 		}
-
-		last = end;
-
-		NewRelic.recordMetric("SAP/AdapterMessageMonitor/Exit", 1.0f);
-		long endTime = System.currentTimeMillis();
-		NewRelic.recordResponseTimeMetric("SAP/AdapterMessageMonitor/ProcessingTime", endTime-startTime);
 	}
 
 	public static void initialize() {
@@ -124,20 +103,10 @@ public class MessageMonitor implements Runnable {
 			if(INSTANCE == null) {
 				INSTANCE = new MessageMonitor();
 			}
-			MessageLoggingConfig config = AdapterMessageLogger.getCurrentConfig();
-			if(frequency != config.getFrequency()) {
-				frequency = config.getFrequency();
-			}
-			if(delay != config.getDelay()) {
-				delay = config.getDelay();
-			}
-			if(INSTANCE != null) {
-				scheduledFuture = executor.scheduleAtFixedRate(INSTANCE, delay, frequency, TimeUnit.MINUTES);
-				Thread shutdown = new Thread(() -> scheduledFuture.cancel(true));
-				Runtime.getRuntime().addShutdownHook(shutdown);
-			}
+			
+			NewRelicExecutors.addRunnableToThreadPool(INSTANCE);
 			initialized = true;
-			NewRelic.getAgent().getLogger().log(Level.FINE, "{0} has been scheduled to run after delay of {1} minutes and will run every {2} minutes", INSTANCE, delay, frequency);
+			
 		}
 	}
 
@@ -510,6 +479,7 @@ public class MessageMonitor implements Runnable {
 			Set<String> toCollect = config.attributesToCollect();
 			Set<String> currentKeys = currentAttributes != null ? currentAttributes.keySet() : new HashSet<String>();
 			Set<String> modifedKeys = new HashSet<String>();
+			HashMap<String, String> keyMapping = new HashMap<String, String>();
 			
 			for(String key : currentKeys) {
 				String mKey = key.toLowerCase().trim();
@@ -524,6 +494,8 @@ public class MessageMonitor implements Runnable {
 					keyToUse = key.substring(tmp.length());
 				}
 				modifedKeys.add(keyToUse.toLowerCase());
+				keyMapping.put(keyToUse.toLowerCase(), key);
+				
 			}
 			
 			for(String attribute : toCollect) {
@@ -538,9 +510,11 @@ public class MessageMonitor implements Runnable {
 					keyToUse = attribute.substring(tmp.length());
 				}
 				keyToUse = keyToUse.toLowerCase();
-				
 				if(modifedKeys.contains(keyToUse)) {
-					String value = currentAttributes.get(keyToUse);
+					String mappedKey = keyMapping.get(keyToUse);
+					if(mappedKey == null) mappedKey = keyToUse;
+					String value = currentAttributes.get(mappedKey);
+					
 					addToMap(attribute.trim(), value, attributes);
 				} else {
 					addToMap(attribute.trim(), NOT_REPORTED, attributes);

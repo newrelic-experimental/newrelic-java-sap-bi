@@ -74,10 +74,10 @@ public class AdapterMessageLogger implements AgentConfigListener {
 			return;
 		}
 
-		Long freq = currentConfig.getFrequency();
-		if(freq != null) {
-			MessageMonitor.changeFrequncy(freq);
-		}
+//		Long freq = currentConfig.getFrequency();
+//		if(freq != null) {
+//			MessageMonitor.changeFrequncy(freq);
+//		}
 		
 
 		HashMap<String, Object> currentSettings = currentConfig.getCurrentSettings();
@@ -227,9 +227,9 @@ public class AdapterMessageLogger implements AgentConfigListener {
 			currentConfig = newConfig;
 			init();
 		}
-		if(currentConfig.frequencyChanged(newConfig)) {
-			MessageMonitor.changeFrequncy(currentConfig.getFrequency());
-		}
+//		if(currentConfig.frequencyChanged(newConfig)) {
+//			MessageMonitor.changeFrequncy(currentConfig.getFrequency());
+//		}
 		Boolean monitorLggging = agentConfig.getValue(ADAPTER_MONITOR_LOGGING);
 		if(monitorLggging != null) {
 			AdapterMonitorLogger.enabled = monitorLggging;

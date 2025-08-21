@@ -15,11 +15,13 @@ import com.sap.aii.af.lib.mp.module.ModuleData;
 public class ModuleProcessorBean {
 
 	public ModuleData process(String channelId, ModuleData objectData) {
+		AdapterMonitorLogger.logMessage("Call to ModuleProcessorBean.process: channelId: " + channelId + ", moduleData: " + objectData);
 		if(!MessageMonitor.initialized) {
 			MessageMonitor.initialize();
 		}
 		if(objectData != null) {
 			Utils.currentModuleData.set(objectData);
+			AdapterMonitorLogger.logMessage("in ModuleProcessorBean.process setting currentModuleData to  moduleData: " + objectData);
 		}
 		
 		ModuleData result = Weaver.callOriginal();
