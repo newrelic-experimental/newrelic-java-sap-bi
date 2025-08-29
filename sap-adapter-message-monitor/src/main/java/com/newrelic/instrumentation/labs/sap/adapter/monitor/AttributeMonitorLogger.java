@@ -32,6 +32,10 @@ public class AttributeMonitorLogger {
 		int maxFiles = 3;
 		File logFile = new File(logDir, logfileName);
 		
+		if(logFile.exists()) {
+			logFile.delete();
+		}
+		
 		if(handler == null) {
 			try {
 				handler = new NRLabsLoggerHandler(logFile.getPath(), 0, rolloverSize, maxFiles);
