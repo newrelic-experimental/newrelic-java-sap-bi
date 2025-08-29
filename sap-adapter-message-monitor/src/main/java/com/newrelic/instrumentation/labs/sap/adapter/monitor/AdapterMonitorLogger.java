@@ -28,6 +28,9 @@ public class AdapterMonitorLogger {
 		String logfileName = "AdapterMonitor.log";
 		int maxFiles = 3;
 		File logFile = new File(logDir, logfileName);
+		if(logFile.exists()) {
+			logFile.delete();
+		}
 		
 		if(handler == null) {
 			try {
