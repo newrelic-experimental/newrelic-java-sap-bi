@@ -7,9 +7,12 @@ import com.newrelic.api.agent.weaver.Weaver;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.AdapterMonitorLogger;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.AttributeProcessor;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.MessageMonitor;
+import com.newrelic.instrumentation.labs.sap.adapter.monitor.MessageToProcess;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.Utils;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.lib.mp.module.ModuleData;
+import com.sap.engine.interfaces.messaging.api.Message;
+import com.sap.engine.interfaces.messaging.api.MessageKey;
 
 @Weave
 public class ModuleProcessorBean {
@@ -25,6 +28,10 @@ public class ModuleProcessorBean {
 		}
 		
 		ModuleData result = Weaver.callOriginal();
+		MessageKey outboundKey = getMessageKey(result);
+		if(outboundKey != null) {
+			MessageMonitor.messageKeyToProcessDelayed(new MessageToProcess(outboundKey));
+		}
 		Utils.currentModuleData.set(null);
 		return result;
 	}
@@ -36,5 +43,15 @@ public class ModuleProcessorBean {
 		ModuleData data = Utils.currentModuleData.get();
 		AttributeProcessor.record(ctx, data);
 		return ctx;
+	}
+	
+	private MessageKey getMessageKey(ModuleData data) {
+		if(data != null) {
+			Object principal = data.getPrincipalData();
+			if(principal != null && principal instanceof Message) {
+				return ((Message)principal).getMessageKey();
+			}
+		}
+		return null;
 	}
 }

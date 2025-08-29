@@ -227,9 +227,6 @@ public class AdapterMessageLogger implements AgentConfigListener {
 			currentConfig = newConfig;
 			init();
 		}
-//		if(currentConfig.frequencyChanged(newConfig)) {
-//			MessageMonitor.changeFrequncy(currentConfig.getFrequency());
-//		}
 		Boolean monitorLggging = agentConfig.getValue(ADAPTER_MONITOR_LOGGING);
 		if(monitorLggging != null) {
 			AdapterMonitorLogger.enabled = monitorLggging;

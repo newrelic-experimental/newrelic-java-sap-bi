@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
@@ -42,7 +44,8 @@ public class MessageMonitor implements Runnable {
 	private static final String NOT_REPORTED = "Not_Reported";
 	private static final String EMPTY_STRING = "Empty_String";
 	private static APIAccess apiAccess = null;
-	private static BlockingQueue<MessageKey> messageKeysToProcess = new LinkedBlockingQueue<MessageKey>();
+	private static BlockingQueue<MessageToProcess> messageKeysToProcess = new LinkedBlockingQueue<MessageToProcess>();
+	private static final long delay = 10000L;
 
 	private static APIAccess getAPIAccess() {
 		if(apiAccess == null) {
@@ -56,9 +59,21 @@ public class MessageMonitor implements Runnable {
 
 	private MessageMonitor() {
 	}
+	
+	public static void messageKeyToProcessDelayed(MessageToProcess messageToProcess) {
+		TimerTask task = new TimerTask() {
+			
+			@Override
+			public void run() {
+				addMessageKeyToProcess(messageToProcess);
+			}
+		};
+		Timer timer = new Timer();
+		timer.schedule(task, delay);
+	}
 
-	public static void addMessageKeyToProcess(MessageKey messageKey) { 
-		messageKeysToProcess.add(messageKey);
+	private static void addMessageKeyToProcess(MessageToProcess messageToProcess) { 
+		messageKeysToProcess.add(messageToProcess);
 	}
 
 	@Override
@@ -66,35 +81,44 @@ public class MessageMonitor implements Runnable {
 
 		while(true) {
 			try {
-				MessageKey messageKey = messageKeysToProcess.take();
+				MessageToProcess toProcess = messageKeysToProcess.take();
+				MessageKey messageKey = toProcess.getMessageKey();
 				AdapterMonitorLogger.logMessage("In MessageMonitor, processing message key " + messageKey);
 				MessageAccess messageAccess = getAPIAccess().getMessageAccess();
 				MessageDataFilter filter = messageAccess.createMessageDataFilter();
 				String messageId = messageKey.getMessageId();
 				filter.setMessageId(messageId);
 				MonitorData monitorData = messageAccess.getMonitorData(filter);
-				LinkedList<MessageData> messageDataList = monitorData.getMessageData();
-				int count = messageDataList.size();
-				NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess",count);
-				for(MessageData data : messageDataList) {
-					MessageKey msgKey = data.getMessageKey();
-					Map<String, String> messageAttributes = null;
-					try {
-						messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
-					} catch (Exception e) {
-						
+				if (monitorData != null) {
+					LinkedList<MessageData> messageDataList = monitorData.getMessageData();
+					int count = messageDataList.size();
+					if(count == 0) {
+						toProcess.incrementRetries();
+						if(toProcess.retry()) {
+							AdapterMonitorLogger.logMessage("retry " + toProcess.getRetries() + " to get attributes for message key " + messageKey);
+							messageKeyToProcessDelayed(toProcess);
+						} else {
+							AdapterMonitorLogger.logMessage("Did not get MessageData after max retries for message key " + messageKey);
+						}
 					}
-					int size = messageAttributes != null ? messageAttributes.size() : 0;
-					NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved",size);
-					String jsonString = getLogJson(data, messageAttributes);
-					AdapterMessageLogger.log(jsonString);
+					AdapterMonitorLogger.logMessage("There are " + count + " MessageData objects");
+					NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess", count);
+					for (MessageData data : messageDataList) {
+						MessageKey msgKey = data.getMessageKey();
+						Map<String, String> messageAttributes = null;
+						messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
+						int size = messageAttributes != null ? messageAttributes.size() : 0;
+						NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved", size);
+						String jsonString = getLogJson(data, messageAttributes);
+						AdapterMessageLogger.log(jsonString);
+					} 
 				}
 				AdapterMonitorLogger.logMessage("In MessageMonitor, finished processing message key " + messageKey);
-				
+
 			} catch (Exception e) {
 				AdapterMonitorLogger.logErrorWithMessage("Error processing message key", e);
 			}
-			
+
 		}
 	}
 
@@ -103,10 +127,10 @@ public class MessageMonitor implements Runnable {
 			if(INSTANCE == null) {
 				INSTANCE = new MessageMonitor();
 			}
-			
+
 			NewRelicExecutors.addRunnableToThreadPool(INSTANCE);
 			initialized = true;
-			
+
 		}
 	}
 
@@ -116,7 +140,7 @@ public class MessageMonitor implements Runnable {
 		AttributeConfig config = AttributeConfig.getInstance();
 		MessageKey messageKey = msgdata.getMessageKey();
 		Message message = null;
-		
+
 		String softComponent = "";
 		String appComponent = "";
 		String svcDefinition = "";
@@ -480,11 +504,11 @@ public class MessageMonitor implements Runnable {
 			Set<String> currentKeys = currentAttributes != null ? currentAttributes.keySet() : new HashSet<String>();
 			Set<String> modifedKeys = new HashSet<String>();
 			HashMap<String, String> keyMapping = new HashMap<String, String>();
-			
+
 			for(String key : currentKeys) {
 				String mKey = key.toLowerCase().trim();
 				String keyToUse = key;
-				
+
 				String tmp = "modulecontext-";
 				if(mKey.startsWith(tmp)) {
 					keyToUse = key.substring(tmp.length());
@@ -495,9 +519,9 @@ public class MessageMonitor implements Runnable {
 				}
 				modifedKeys.add(keyToUse.toLowerCase());
 				keyMapping.put(keyToUse.toLowerCase(), key);
-				
+
 			}
-			
+
 			for(String attribute : toCollect) {
 				String mKey = attribute.toLowerCase().trim();
 				String keyToUse = attribute.trim();
@@ -514,14 +538,14 @@ public class MessageMonitor implements Runnable {
 					String mappedKey = keyMapping.get(keyToUse);
 					if(mappedKey == null) mappedKey = keyToUse;
 					String value = currentAttributes.get(mappedKey);
-					
+
 					addToMap(attribute.trim(), value, attributes);
 				} else {
 					addToMap(attribute.trim(), NOT_REPORTED, attributes);
 				}
-				
+
 			}
-			
+
 
 		}
 		Gson gson = new Gson();
