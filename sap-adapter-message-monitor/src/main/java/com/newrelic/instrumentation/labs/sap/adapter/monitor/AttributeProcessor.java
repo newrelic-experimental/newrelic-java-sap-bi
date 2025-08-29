@@ -89,6 +89,7 @@ public class AttributeProcessor {
 					if(found) {
 						dropTable(connection);
 						logger.log(Level.FINE, "{0} dropped", TABLE_NAME);
+						logMessage("Dropped table " + TABLE_NAME);
 						initialized = true;
 					}
 				}
