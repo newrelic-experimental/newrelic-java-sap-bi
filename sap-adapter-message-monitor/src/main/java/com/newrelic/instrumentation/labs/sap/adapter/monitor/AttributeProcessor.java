@@ -14,10 +14,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,15 +33,20 @@ import org.w3c.dom.NodeList;
 
 import com.newrelic.api.agent.Logger;
 import com.newrelic.api.agent.NewRelic;
+import com.sap.aii.adapter.xi.ms.XIMessage;
+import com.sap.aii.adapter.xi.validator.ModuleContextImpl;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.lib.mp.module.ModuleData;
+import com.sap.aii.af.sdk.xi.mo.MessageContext;
 import com.sap.aii.af.search.api.IndexDataAttribute;
 import com.sap.aii.af.search.core.DataAccess;
 import com.sap.aii.af.search.core.IndexDataAttributeImpl;
 import com.sap.aii.af.service.db.ConnectionManager;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
+import com.sap.engine.interfaces.messaging.api.MessagePropertyKey;
 import com.sap.engine.interfaces.messaging.api.XMLPayload;
+import com.sap.engine.interfaces.messaging.spi.AbstractMessage;
 
 public class AttributeProcessor {
 
@@ -57,6 +62,11 @@ public class AttributeProcessor {
 	public static final String INPUT = "Input";
 	public static final String OUTPUT = "Output";
 	public static final String MESSAGE = "Message";
+	protected static final String MESSAGE_DOCUMENT = "MessageDocument";
+	protected static final String PAYLOAD_ATTRIBUTES = "PayLoad-Attributes";
+	protected static final String MESSAGE_PROPERTIES = "Message-Properity";
+	protected static final String MESSAGECONTEXT_IN_ATTRIBUTES = "MessageContext-In-Attributes";
+	protected static final String MESSAGECONTEXT_OUT_ATTRIBUTES = "MessageContext-Out-Attributes";
 
 	public static final String MAP_TYPE = "MapType";
 
@@ -114,6 +124,87 @@ public class AttributeProcessor {
 		NewRelic.getAgent().getLogger().log(Level.FINE, "Dropped table {0}",TABLE_NAME);
 	}
 
+	protected static void setAttributes(Map<MessageKey, Map<String,String>> attributeMappings ) {
+		long startTime = System.nanoTime();
+		logMessage("Call to setAttributes, will process " + attributeMappings.size() + " messagekeys");
+
+		if(!initialized) {
+			initialize();
+		}
+	
+		
+		List<MessageKey> msgKeys = new ArrayList<MessageKey>();
+		msgKeys.addAll(attributeMappings.keySet());
+		
+		HashMap<MessageKey, ArrayList<IndexDataAttribute>> currentAttributes = DataAccess.readAttributesByMessageKeys(msgKeys);
+		
+		
+		Set<IndexDataAttribute> toUpdate = new HashSet<IndexDataAttribute>();
+		Set<MessageKey> toProcess = new HashSet<MessageKey>();
+		
+		
+		for(MessageKey messageKey : attributeMappings.keySet()) {
+			logMessage("In setAttributes, processing message key  " + messageKey);
+			Map<String,String> messageAttributes = attributeMappings.get(messageKey);
+			logMessage("Checking " + messageAttributes + " for MessageKey " + messageKey);
+			Map<String,String> attributesToReport = processAttributes(messageAttributes);
+			if(attributesToReport == null || attributesToReport.isEmpty()) {
+				logMessage("Skipping insert/update for messagekey " + messageKey + " no configured attributes found");
+				continue;
+			}
+			logMessage("There are " + attributesToReport.size() + " attributes to process for inserting/updating");
+			toProcess.add(messageKey);
+			
+			ArrayList<IndexDataAttribute> currentForMessage = currentAttributes.get(messageKey);
+			int size = currentForMessage != null ? currentForMessage.size() : 0;
+			logMessage("There are " + size + " attributes from DataAccess for message key " + messageKey);
+			if(currentForMessage == null || currentForMessage.isEmpty()) {
+				for(String name : attributesToReport.keySet()) {
+					IndexDataAttributeImpl dataAttribute = new IndexDataAttributeImpl();
+					dataAttribute.setMessageKey(messageKey);
+					dataAttribute.setName(name);
+					dataAttribute.setValue(attributesToReport.get(name));
+					toUpdate.add(dataAttribute);
+				}
+			} else {
+				Map<String, IndexDataAttribute> existing = new Hashtable<String, IndexDataAttribute>();
+				for(IndexDataAttribute attr : currentForMessage) {
+					existing.put(attr.getName(), attr);
+				}
+				for(String name : attributesToReport.keySet()) {
+					IndexDataAttribute existingAttr = existing.get(name);
+					if(existingAttr != null) {
+						String value = attributesToReport.get(name);
+						if(!(value.equals(existingAttr.getValue()))) {
+							existingAttr.setValue(value);
+							toUpdate.add(existingAttr);
+						}
+					} else {
+						// new attribute
+						IndexDataAttributeImpl dataAttribute = new IndexDataAttributeImpl();
+						dataAttribute.setMessageKey(messageKey);
+						dataAttribute.setName(name);
+						dataAttribute.setValue(attributesToReport.get(name));
+						toUpdate.add(dataAttribute);
+						
+					}
+				}
+				
+			}
+		}
+		
+		if(!toUpdate.isEmpty()) {
+			logMessage("There are " + toUpdate.size() + " IndexDataAttributes to insert/update");
+			IndexDataAttribute[] updated = new IndexDataAttribute[toUpdate.size()];
+			toUpdate.toArray(updated);
+			DataAccess.upsert(updated);
+		}
+		
+		long endTime = System.nanoTime();
+		MessageMonitor.messageKeysToProcessDelayed(toProcess);
+		NewRelic.recordMetric("SAP/AttributeProcessor/SetAttributesTimer(ms)", (endTime-startTime)/1000000.0f);
+	}
+	
 	protected static void setAttributes(MessageKey messageKey, Map<String,String> attributes) {
 		long startTime = System.nanoTime();
 
@@ -133,7 +224,7 @@ public class AttributeProcessor {
 		logMessage("Checking to insert or update attributes for message id "+ messageKey.getMessageId() + ": " + attributes);
 
 			try {
-				IndexDataAttribute[] dataAttributes = DataAccess.readAttributesByMessageKey(messageKey); //searchFacade.getDataAttributes(messageKey);
+				IndexDataAttribute[] dataAttributes = DataAccess.readAttributesByMessageKey(messageKey);
 				logMessage("Read " + dataAttributes.length + " data attributes from DataAccess: " + Arrays.toString(dataAttributes));
 				if(dataAttributes == null || dataAttributes.length == 0) {
 					dataAttributes = new IndexDataAttribute[attributesToReport.size()];
@@ -193,7 +284,7 @@ public class AttributeProcessor {
 					
 				}
 				
-				AdapterMonitorLogger.logMessage("Inserted " + dataAttributes.length + " using SearchFacade");
+				AdapterMonitorLogger.logMessage("Inserted " + dataAttributes.length + " using DataAccess");
 			} catch (Exception e) {
 				AdapterMonitorLogger.logErrorWithMessage("Error while trying to set attributes", e);
 			}
@@ -203,50 +294,102 @@ public class AttributeProcessor {
 		MessageMonitor.messageKeyToProcessDelayed(new MessageToProcess(messageKey));
 	}
 	
-	private static Set<IndexDataAttribute> getCurrentAttributes(MessageKey messageKey) {
-		Set<IndexDataAttribute> currentAttributes = new HashSet<IndexDataAttribute>();
-		try {
-			IndexDataAttribute[] dataAttributes = DataAccess.readAttributesByMessageKey(messageKey);
-			AdapterMonitorLogger.logMessage("Retrieved attributes for messagekey " + messageKey + ": " + Arrays.toString(dataAttributes));
-			if(dataAttributes.length > 0) {
-				AdapterMonitorLogger.logMessage("Using data attributes array");
-				currentAttributes.addAll(Arrays.asList(dataAttributes));
-			} else {
-				AdapterMonitorLogger.logMessage("Did not find attributes in array, trying map");
-
-				List<MessageKey> msgKeys = new ArrayList<MessageKey>();
-				msgKeys.add(messageKey);
-				HashMap<MessageKey, ArrayList<IndexDataAttribute>> attributesMap = DataAccess.readAttributesByMessageKeys(msgKeys);
-				AdapterMonitorLogger.logMessage("Map has " + attributesMap.size() + " elements");
-				ArrayList<IndexDataAttribute> attributeList = attributesMap.get(messageKey);
-				AdapterMonitorLogger.logMessage("Map returned " + attributeList.size() + " attributes for message key " + messageKey);
-				if(!attributeList.isEmpty()) {
-					currentAttributes.addAll(attributeList);
+	public static HashMap<MessageKey, Map<String,String>> getCurrentAttributes(List<MessageKey> messageKeys) {
+		HashMap<MessageKey, ArrayList<IndexDataAttribute>> attributeMapping = DataAccess.readAttributesByMessageKeys(messageKeys);
+		HashMap<MessageKey, Map<String,String>> mapping = new HashMap<MessageKey, Map<String,String>>();
+		
+		if(!attributeMapping.isEmpty()) {
+			for(MessageKey msgKey : attributeMapping.keySet()) {
+				ArrayList<IndexDataAttribute> current = attributeMapping.get(msgKey);
+				if(current != null) {
+					HashMap<String, String> currentAttributes = new HashMap<String, String>();
+					for(IndexDataAttribute attr : current) {
+						if(attr != null) {
+							currentAttributes.put(attr.getName(), attr.getValue());
+						}
+					}
+					mapping.put(msgKey, currentAttributes);
 				}
 			}
-		} catch (Exception e) {
-			AdapterMonitorLogger.logErrorWithMessage("Error while getting data attributes from DataAccess", e);
 		}
-
-		return currentAttributes;
+		return mapping;
 	}
-
-	public static Map<String,String> recordObject(Object requestMessage) {
+	
+	@SuppressWarnings("rawtypes")
+	public static Map<String,Map<String,String>> recordObject(Object requestMessage) {
+		
+		Map<String,Map<String,String>> result = new HashMap<String, Map<String,String>>();
+		
 
 		if(requestMessage instanceof Message) {
-			Message xiMessage = (Message)requestMessage;
+			Message message = (Message)requestMessage;
 
-			XMLPayload document = xiMessage.getDocument();
+			XMLPayload document = message.getDocument();
 			try {
 				Document doc = loadXMLFromString(document.getText());
 				Map<String,String> attributes = getAttributesFromXML(doc);
-				return attributes;
+				if(attributes != null) {
+					result.put(MESSAGE_DOCUMENT, attributes);
+				}
+				Map<String,String> attributes2 = new HashMap<String, String>();
+				
+				for(String attributeName : document.getAttributeNames()) {
+					String value = document.getAttribute(attributeName);
+					if(value != null) {
+						attributes2.put(attributeName, value);
+					}
+				}
+				result.put(PAYLOAD_ATTRIBUTES, attributes2);
+				
+				Map<String,String> attributes3 = new HashMap<String, String>();
+				for(MessagePropertyKey propertyKey : message.getMessagePropertyKeys()) {
+					String value = message.getMessageProperty(propertyKey);
+					String name = propertyKey.toString();
+					attributes3.put(name, value);
+				}
+				result.put(MESSAGE_PROPERTIES, attributes3);
+				
+				
 			} catch (Exception e) {
 				NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to parse XML");
 			}
+			
+			if(message instanceof XIMessage) {
+				XIMessage xiMessage = (XIMessage)message;
+				MessageContext msgContext = xiMessage.getMessageContext();
+				Enumeration inKeys = msgContext.getAttributeKeys(0);
+				if(inKeys.hasMoreElements()) {
+					Map<String, String> inAttributes = new HashMap<String, String>();
+					while(inKeys.hasMoreElements()) {
+						String name = inKeys.nextElement().toString();
+						Object value = msgContext.getAttribute(name, 0);
+						if(value != null) {
+							inAttributes.put(name, value.toString());
+						}
+					}
+					if(!inAttributes.isEmpty()) {
+						result.put(MESSAGECONTEXT_IN_ATTRIBUTES, inAttributes);
+					}
+				}
+				
+				Enumeration outKeys = msgContext.getAttributeKeys(1);
+				if(outKeys.hasMoreElements()) {
+					Map<String, String> outAttributes = new HashMap<String, String>();
+					while(outKeys.hasMoreElements()) {
+						String name = outKeys.nextElement().toString();
+						Object value = msgContext.getAttribute(name, 0);
+						if(value != null) {
+							outAttributes.put(name, value.toString());
+						}
+					}
+					if(!outAttributes.isEmpty()) {
+						result.put(MESSAGECONTEXT_OUT_ATTRIBUTES, outAttributes);
+					}
+				}
+			}
 
 		}
-		return null;
+		return result;
 	}
 
 	public static Map<String, String> getAttributesFromXML(Document document) {
@@ -288,26 +431,42 @@ public class AttributeProcessor {
 		return builder.parse(stream);
 	}
 
+	@SuppressWarnings("rawtypes")
 	public static void record(ModuleContext moduleContext, ModuleData moduleData) {
 		if(!AttributeChecker.initialized) {
 			AttributeChecker.startChecker();
 		}
 		AdapterMonitorLogger.logMessage("Added ModuleContext " + moduleContext + " and ModuleData " + moduleData + " to processing queue");
-		AttributeChecker.addDataToQueue(new ModuleDataHolder(moduleData, moduleContext));
-	}
-
-	public static Map<String,String> getMessageAttributes(MessageKey messageKey) {
-		AdapterMonitorLogger.logMessage("Getting attributes for message key " + messageKey);
-		
-		Map<String,String> attributes = new LinkedHashMap<String, String>();
-		Set<IndexDataAttribute> current = getCurrentAttributes(messageKey);
-		for(IndexDataAttribute dataAttribute : current) {
-			attributes.put(dataAttribute.getName(), dataAttribute.getValue());
+		ModuleData md = new ModuleData();
+		Object principal = moduleData.getPrincipalData();
+		if(principal instanceof AbstractMessage) {
+			try {
+				principal = ((AbstractMessage)principal).clone();
+			} catch (CloneNotSupportedException e) {
+			}
 		}
-		AdapterMonitorLogger.logMessage("Found " + attributes.size() + " from DataAccess");
-		AdapterMonitorLogger.logMessage("Attributes reported " + attributes);
-		NewRelic.recordMetric("SAP/AttributeProcessor/AttributesRetrieved", attributes.size());
-		return attributes;
+		md.setPrincipalData(principal);
+		Enumeration names = moduleData.getSupplementalDataNames();
+		while(names.hasMoreElements()) {
+			String name = names.nextElement().toString();
+			Object value = moduleData.getSupplementalData(name);
+			md.setSupplementalData(name, value);
+		}
+		
+		Hashtable<String,String> ht = new Hashtable<String, String>();
+		
+		names = moduleContext.getContextDataKeys();
+		while(names.hasMoreElements()) {
+			String name = names.nextElement().toString();
+			String value = moduleContext.getContextData(name);
+			if(value != null) {
+				ht.put(name, value);
+			}
+		}
+		
+		ModuleContext ctx = new ModuleContextImpl(moduleContext.getChannelID(), ht);
+		
+		AttributeChecker.addDataToQueue(new ModuleDataHolder(md, ctx));
 	}
 
 	private static Connection getConnectionToUse() {
@@ -393,6 +552,7 @@ public class AttributeProcessor {
 		if (config.collectingUserAttributes()) {
 			Set<String> toCollect = config.attributesToCollect();
 			Set<String> currentKeys = currentAttributes != null ? currentAttributes.keySet() : new HashSet<String>();
+			logMessage("Will compare " + currentKeys + " to " + toCollect + " for matches");
 			Set<String> modifedKeys = new HashSet<String>();
 			HashMap<String, String> keyMapping = new HashMap<String, String>();
 
@@ -437,6 +597,7 @@ public class AttributeProcessor {
 
 		}
 
+		logMessage("Found " + attributesToReport + " matches");
 
 		return attributesToReport;
 	}

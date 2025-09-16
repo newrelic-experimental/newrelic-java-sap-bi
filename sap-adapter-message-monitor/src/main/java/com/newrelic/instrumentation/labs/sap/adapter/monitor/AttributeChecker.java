@@ -1,17 +1,20 @@
 package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 
 import com.newrelic.api.agent.NewRelic;
@@ -27,6 +30,8 @@ public class AttributeChecker implements Runnable {
 	private static final int MAX = 100000;
 	private static BlockingQueue<DataHolder> queue = new LinkedBlockingQueue<DataHolder>(MAX);
 	private static int NUMBER_OF_CONSUMERS = 5;
+	private static final long DELAY = (NUMBER_OF_CONSUMERS+1) * 60000L;
+	private int index;
 	
 	public static void addDataToQueue(DataHolder holder) {
 		if(queue.remainingCapacity() < 100) {
@@ -45,9 +50,13 @@ public class AttributeChecker implements Runnable {
 	public static void startChecker() {
 		try {
 			for(int i = 1;i<=NUMBER_OF_CONSUMERS;i++) {
-				AttributeChecker checker = new AttributeChecker();
-				NewRelicExecutors.addRunnableToThreadPool(checker);
-				AdapterMonitorLogger.logMessage("AttributeChecker "+ i +" has been started");		
+				AttributeChecker checker = new AttributeChecker(i);
+				NewRelicExecutors.addScheduledTask(() -> {
+					NewRelicExecutors.addRunnableToThreadPool(checker);
+					AdapterMonitorLogger.logMessage("AttributeChecker "+ checker.index + " has been started");
+				}, i-1,TimeUnit.MINUTES);
+				
+						
 			}
 			initialized = true;
 		} catch (Exception e) {
@@ -59,37 +68,50 @@ public class AttributeChecker implements Runnable {
 		}, 1, 1, TimeUnit.MINUTES);
 	}
 	
-	private AttributeChecker() {
+	private AttributeChecker(int index) {
+		this.index = index;
 	}
 
 
 	@Override
 	public void run() {
-		AdapterMonitorLogger.logMessage("Call to AttributeChecker.run()");
+		AdapterMonitorLogger.logMessage("Call to AttributeChecker.run() for checker " + index);
 		
 		while(true) {
 			try {
-				DataHolder holder = queue.take();
-				AdapterMonitorLogger.logMessage("Popped Dataholder off queue: " + holder);
-				Future<?> future = NewRelicExecutors.addRunnableToThreadPool(() -> {
-					processDataHolder(holder);
-				});
+				AdapterMonitorLogger.logMessage("Processing attributes on checker " + index);
+				Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
+				int toProcess = queue.drainTo(dataHoldersToProcess, 50);
+				AdapterMonitorLogger.logMessage("Popped " + toProcess + " DataHolders from queue on checker " + index);
 				
-				try {
-					Object result = future.get(1, TimeUnit.SECONDS);
-					if(result != null) {
-					}
-				} catch (ExecutionException e) {
-					AdapterMonitorLogger.logErrorWithMessage("Call to process dataholder was cancelled due to ExecutionException", e);
-					NewRelic.recordMetric("/SAP/AttributeProcess/ProcessingFromQueue/ExecutionException", 1.0f);
-					future.cancel(true);
-				} catch (TimeoutException e) {
-					AdapterMonitorLogger.logErrorWithMessage("Call to process dataholder was cancelled due to TimeoutException", e);
-					NewRelic.recordMetric("/SAP/AttributeProcess/ProcessingFromQueue/Timeout", 1.0f);
-					future.cancel(true);
+				if(toProcess > 0) {
+					processDataHolders(dataHoldersToProcess);
 				}
 				
-			} catch (InterruptedException e) {
+				long start = System.currentTimeMillis();
+				Timer timer = new Timer();
+				CompletableFuture<Boolean> future = new CompletableFuture<Boolean>();
+				
+				TimerTask waitTask = new TimerTask() {
+					
+					@Override
+					public void run() {
+						future.complete(true);
+						
+					}
+				};
+				
+				timer.schedule(waitTask, DELAY);
+				
+				try {
+					future.get(NUMBER_OF_CONSUMERS+1, TimeUnit.MINUTES);
+				} catch (Exception e) {
+				}
+				
+				long end = System.currentTimeMillis();
+				AdapterMonitorLogger.logMessage("Waited for " + DELAY + " before continuing, actual time is " + (end - start) + " ms");
+				
+			} catch (Exception e) {
 				NewRelic.getAgent().getLogger().log(Level.FINER, e, "Error occurred trying to take holder from queue");
 				AdapterMonitorLogger.logErrorWithMessage("Error occurred trying to take holder from queue",e);			
 			}
@@ -98,66 +120,91 @@ public class AttributeChecker implements Runnable {
 		
 	}
 	
-
+	
 	@SuppressWarnings("rawtypes")
-	private void processDataHolder(DataHolder holder) {
-		if (holder instanceof ModuleDataHolder) {
-			ModuleDataHolder moduleHolder = (ModuleDataHolder)holder;
-			ModuleContext moduleContext = moduleHolder.moduleContext;
-			ModuleData moduleData = moduleHolder.moduleData;
-			Object principalData = moduleData != null ? moduleData.getPrincipalData() : null;
-			MessageKey messageKey = null;
-			if (principalData != null) {
-				if (principalData instanceof Message) {
-					Message message = (Message) principalData;
-					messageKey = message.getMessageKey();
-				}
-			}
-			AdapterMonitorLogger.logMessage("Processing attributes for " + messageKey + " from ModuleContext and ModuleData: " + moduleContext + ", " + moduleData);
-			long start = System.currentTimeMillis();
-			Map<String, String> values = new LinkedHashMap<String, String>();
-			if (moduleContext != null) {
-				String channelId = moduleContext.getChannelID();
-				values.put("ChannelId", channelId);
-				Enumeration keys = moduleContext.getContextDataKeys();
-				while (keys.hasMoreElements()) {
-					String key = keys.nextElement().toString();
-					AttributeMonitorLogger.addAttribute(key, "ModuleContext");
-					String value = moduleContext.getContextData(key);
-					if (value != null) {
-						values.put(key.toLowerCase(), value);
+	private void processDataHolders(Collection<DataHolder> dataHolders) {
+		AdapterMonitorLogger.logMessage("Call to processDataHolders, there are " + dataHolders + " dataholders to process");
+		Map<MessageKey, Map<String,String>> attributeMappings = new HashMap<MessageKey, Map<String,String>>();
+		long startOfAll = System.currentTimeMillis();
+		
+		for (DataHolder holder : dataHolders) {
+			if (holder instanceof ModuleDataHolder) {
+				ModuleDataHolder moduleHolder = (ModuleDataHolder)holder;
+				ModuleContext moduleContext = moduleHolder.moduleContext;
+				ModuleData moduleData = moduleHolder.moduleData;
+				Object principalData = moduleData != null ? moduleData.getPrincipalData() : null;
+				MessageKey messageKey = null;
+				if (principalData != null) {
+					if (principalData instanceof Message) {
+						Message message = (Message) principalData;
+						messageKey = message.getMessageKey();
 					}
 				}
-			}
-			if (moduleData != null) {
-				Enumeration supplementalNames = moduleData.getSupplementalDataNames();
-				while (supplementalNames.hasMoreElements()) {
-					String key = supplementalNames.nextElement().toString();
-					AttributeMonitorLogger.addAttribute(key, "ModuleData-Supplemental");
-					Object value = moduleData.getSupplementalData(key);
-					values.put(key.toLowerCase(), value.toString());
-				} 
-				
-			}
-			if(principalData != null) {
-				Map<String,String> attributesFromMsg = AttributeProcessor.recordObject(principalData);
-				if(attributesFromMsg != null && !attributesFromMsg.isEmpty()) {
-					Set<String> keys = attributesFromMsg.keySet();
-					for(String key : keys) {
-						AttributeMonitorLogger.addAttribute(key, "MessageDocument");
+				AdapterMonitorLogger.logMessage("Processing attributes for " + messageKey + " from ModuleContext and ModuleData: " + moduleContext + ", " + moduleData);
+				long start = System.currentTimeMillis();
+				Map<String, String> values = new LinkedHashMap<String, String>();
+				if (moduleContext != null) {
+					String channelId = moduleContext.getChannelID();
+					values.put("ChannelId", channelId);
+					Enumeration keys = moduleContext.getContextDataKeys();
+					while (keys.hasMoreElements()) {
+						String key = keys.nextElement().toString();
+						AttributeMonitorLogger.addAttribute(key, "ModuleContext");
+						String value = moduleContext.getContextData(key);
+						if (value != null) {
+							values.put(key.toLowerCase(), value);
+						}
 					}
-					values.putAll(attributesFromMsg);
 				}
-			}
-
-			if (messageKey != null && values != null && !values.isEmpty()) {
-				AttributeProcessor.setAttributes(messageKey, values);
-			}
-			
-			
-			long end = System.currentTimeMillis();
-			NewRelic.recordMetric("/SAP/AttributeProcess/TimeToProcess", end - start);
+				if (moduleData != null) {
+					Enumeration supplementalNames = moduleData.getSupplementalDataNames();
+					while (supplementalNames.hasMoreElements()) {
+						String key = supplementalNames.nextElement().toString();
+						AttributeMonitorLogger.addAttribute(key, "ModuleData-Supplemental");
+						Object value = moduleData.getSupplementalData(key);
+						values.put(key.toLowerCase(), value.toString());
+					} 
+					
+				}
+				if(principalData != null) {
+					Map<String,Map<String,String>> attributesFromMsg = AttributeProcessor.recordObject(principalData);
+					if(attributesFromMsg != null && !attributesFromMsg.isEmpty()) {
+						Map<String,String> msgAttributes = attributesFromMsg.get(AttributeProcessor.MESSAGE_DOCUMENT);
+						Set<String> keys = msgAttributes.keySet();
+						for(String key : keys) {
+							AttributeMonitorLogger.addAttribute(key, AttributeProcessor.MESSAGE_DOCUMENT);
+						}
+						values.putAll(msgAttributes);
+						
+						Map<String,String> payloadAttributes = attributesFromMsg.get(AttributeProcessor.PAYLOAD_ATTRIBUTES);
+						for(String key : payloadAttributes.keySet()) {
+							AttributeMonitorLogger.addAttribute(key, AttributeProcessor.PAYLOAD_ATTRIBUTES);
+						}
+						values.putAll(payloadAttributes);
+						
+						Map<String,String> msgProperties = attributesFromMsg.get(AttributeProcessor.MESSAGE_PROPERTIES);
+						for(String key : msgProperties.keySet()) {
+							AttributeMonitorLogger.addAttribute(key, AttributeProcessor.MESSAGE_PROPERTIES);
+						}
+						values.putAll(payloadAttributes);
+						
+					}
+				}
+				AdapterMonitorLogger.logMessage("Collected " + values.size() + " attributes for message key " + messageKey);
+				AdapterMonitorLogger.logMessage("Attributes for message key " + messageKey + " are " +  values);
+				attributeMappings.put(messageKey, values);
+				long end = System.currentTimeMillis();
+				NewRelic.recordMetric("SAP/AttributeProcess/TimeToProcessKey", end-start);
+			} 
 		}
 		
+		if(!attributeMappings.isEmpty()) {
+			AdapterMonitorLogger.logMessage("Reporting attributes for  " + attributeMappings.size() + " message keys");
+			AttributeProcessor.setAttributes(attributeMappings);
+		}
+		long endAll = System.currentTimeMillis();
+		NewRelic.recordMetric("SAP/AttributeProcess/TimeToProcessAllKeys", endAll-startOfAll);
+		
 	}
+
 }

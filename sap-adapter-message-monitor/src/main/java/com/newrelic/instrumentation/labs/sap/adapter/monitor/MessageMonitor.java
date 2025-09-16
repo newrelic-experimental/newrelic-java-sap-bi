@@ -1,16 +1,20 @@
 package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 import com.newrelic.agent.deps.com.google.gson.Gson;
@@ -60,6 +64,12 @@ public class MessageMonitor implements Runnable {
 	private MessageMonitor() {
 	}
 	
+	public static void messageKeysToProcessDelayed(Collection<MessageKey> keysToProcess) {
+		for(MessageKey key : keysToProcess) {
+			messageKeyToProcessDelayed(new MessageToProcess(key));
+		}
+	}
+	
 	public static void messageKeyToProcessDelayed(MessageToProcess messageToProcess) {
 		TimerTask task = new TimerTask() {
 			
@@ -79,47 +89,96 @@ public class MessageMonitor implements Runnable {
 	@Override
 	public void run() {
 
-		while(true) {
-			try {
-				MessageToProcess toProcess = messageKeysToProcess.take();
-				MessageKey messageKey = toProcess.getMessageKey();
-				AdapterMonitorLogger.logMessage("In MessageMonitor, processing message key " + messageKey);
-				MessageAccess messageAccess = getAPIAccess().getMessageAccess();
-				MessageDataFilter filter = messageAccess.createMessageDataFilter();
-				String messageId = messageKey.getMessageId();
-				filter.setMessageId(messageId);
-				MonitorData monitorData = messageAccess.getMonitorData(filter);
-				if (monitorData != null) {
-					LinkedList<MessageData> messageDataList = monitorData.getMessageData();
-					int count = messageDataList.size();
-					if(count == 0) {
-						toProcess.incrementRetries();
-						if(toProcess.retry()) {
-							AdapterMonitorLogger.logMessage("retry " + toProcess.getRetries() + " to get attributes for message key " + messageKey);
-							messageKeyToProcessDelayed(toProcess);
-						} else {
-							AdapterMonitorLogger.logMessage("Did not get MessageData after max retries for message key " + messageKey);
-						}
-					}
-					AdapterMonitorLogger.logMessage("There are " + count + " MessageData objects");
-					NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess", count);
-					for (MessageData data : messageDataList) {
-						MessageKey msgKey = data.getMessageKey();
-						Map<String, String> messageAttributes = null;
-						messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
-						int size = messageAttributes != null ? messageAttributes.size() : 0;
-						NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved", size);
-						String jsonString = getLogJson(data, messageAttributes);
-						AdapterMessageLogger.log(jsonString);
-					} 
-				}
-				AdapterMonitorLogger.logMessage("In MessageMonitor, finished processing message key " + messageKey);
+		try {
+			HashSet<MessageToProcess> messagesToProcess = new HashSet<MessageToProcess>();
 
-			} catch (Exception e) {
-				AdapterMonitorLogger.logErrorWithMessage("Error processing message key", e);
+			synchronized (messagesToProcess) {
+				int available = messageKeysToProcess.drainTo(messagesToProcess);
+				AdapterMonitorLogger.logMessage("Will process " + available + " Message Keys");
+				if(available < 1) {
+					return;
+				}
+			}
+			
+			List<MessageKey> keys = new ArrayList<MessageKey>();
+			for(MessageToProcess toProcess : messagesToProcess) {
+				keys.add(toProcess.getMessageKey());
 			}
 
+			HashMap<MessageKey, Map<String,String>> currentAttributes = AttributeProcessor.getCurrentAttributes(keys);
+			String[] msgKeys = new String[keys.size()];
+			int index = 0;
+			for(MessageKey mKey : keys) {
+				msgKeys[index] = mKey.getMessageId();
+				index++;
+			}
+			MessageAccess messageAccess = getAPIAccess().getMessageAccess();
+			MessageDataFilter filter = messageAccess.createMessageDataFilter();
+			filter.setMessageIds(msgKeys);
+			MonitorData data = messageAccess.getMonitorData(filter);
+			
+			HashMap<MessageKey, List<MessageData>> dataMapping = new HashMap<MessageKey, List<MessageData>>();
+			
+			LinkedList<MessageData> msgDataList = data.getMessageData();
+			for(MessageData msgData : msgDataList) {
+				MessageKey msgKey = msgData.getMessageKey();
+				List<MessageData> list = dataMapping.get(msgKey);
+				if(list == null) {
+					list = new ArrayList<MessageData>();
+					list.add(msgData);
+				} else {
+					list.add(msgData);
+				}
+				dataMapping.put(msgKey, list);
+			}
+			
+			List<MessageToProcess> toRetry = new ArrayList<MessageToProcess>();
+			
+			//MessageToProcess toProcess = messageKeysToProcess.take();
+			for(MessageToProcess toProcess : messagesToProcess) {
+				MessageKey messageKey = toProcess.getMessageKey();
+				AdapterMonitorLogger.logMessage("In MessageMonitor, processing message key " + messageKey);
+
+				List<MessageData> list = dataMapping.get(messageKey);
+				if(list == null || list.isEmpty()) {
+					toRetry.add(toProcess);
+				} else {
+					for(MessageData msgData : list) {
+						Map<String,String> dataAttributes = currentAttributes.get(messageKey);
+						if(dataAttributes == null || dataAttributes.isEmpty()) {
+							if(toProcess.retry()) {
+								toRetry.add(toProcess);
+							} else {
+								AdapterMonitorLogger.logMessage("Did not get MessageData after max retries for message key " + messageKey);
+							}
+
+						} else {
+							int size = dataAttributes != null ? dataAttributes.size() : 0;
+							NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved", size);
+							String jsonString = getLogJson(msgData, dataAttributes);
+							AdapterMessageLogger.log(jsonString);
+						}
+					}
+				}
+				AdapterMonitorLogger.logMessage("In MessageMonitor, finished processing message key " + messageKey);
+			}
+			if(!toRetry.isEmpty()) {
+				for(MessageToProcess toProcess : toRetry) {
+					MessageKey messageKey = toProcess.getMessageKey();
+					if(toProcess.retry()) {
+						toProcess.incrementRetries();
+						AdapterMonitorLogger.logMessage("retry " + toProcess.getRetries() + " to get attributes for message key " + messageKey);
+						messageKeyToProcessDelayed(toProcess);
+					} else {
+						AdapterMonitorLogger.logMessage("Did not get MessageData after max retries for message key " + messageKey);
+					}
+				}
+			}
+
+		} catch (Exception e) {
+			AdapterMonitorLogger.logErrorWithMessage("Error processing message key", e);
 		}
+
 	}
 
 	public static void initialize() {
@@ -128,7 +187,7 @@ public class MessageMonitor implements Runnable {
 				INSTANCE = new MessageMonitor();
 			}
 
-			NewRelicExecutors.addRunnableToThreadPool(INSTANCE);
+			NewRelicExecutors.addScheduledTaskAtFixedRate(INSTANCE, 1L, 1L, TimeUnit.MINUTES);
 			initialized = true;
 
 		}
