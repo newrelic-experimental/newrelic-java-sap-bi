@@ -1,23 +1,14 @@
 package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
-import static com.newrelic.instrumentation.labs.sap.adapter.monitor.AdapterMonitorLogger.logErrorWithMessage;
-import static com.newrelic.instrumentation.labs.sap.adapter.monitor.AdapterMonitorLogger.logMessage;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,298 +22,144 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import com.newrelic.api.agent.Logger;
 import com.newrelic.api.agent.NewRelic;
 import com.sap.aii.adapter.xi.ms.XIMessage;
 import com.sap.aii.adapter.xi.validator.ModuleContextImpl;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.lib.mp.module.ModuleData;
 import com.sap.aii.af.sdk.xi.mo.MessageContext;
-import com.sap.aii.af.search.api.IndexDataAttribute;
-import com.sap.aii.af.search.core.DataAccess;
-import com.sap.aii.af.search.core.IndexDataAttributeImpl;
-import com.sap.aii.af.service.db.ConnectionManager;
+import com.sap.engine.interfaces.messaging.api.APIAccess;
+import com.sap.engine.interfaces.messaging.api.APIAccessFactory;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 import com.sap.engine.interfaces.messaging.api.MessagePropertyKey;
 import com.sap.engine.interfaces.messaging.api.XMLPayload;
+import com.sap.engine.interfaces.messaging.api.exception.InvalidParamException;
+import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
+import com.sap.engine.interfaces.messaging.api.message.MessageAccess;
+import com.sap.engine.interfaces.messaging.api.message.MessageAccessException;
+import com.sap.engine.interfaces.messaging.api.message.MessageData;
+import com.sap.engine.interfaces.messaging.api.message.MessageDataFilter;
+import com.sap.engine.interfaces.messaging.api.message.MonitorData;
 import com.sap.engine.interfaces.messaging.spi.AbstractMessage;
+import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 
 public class AttributeProcessor {
 
-	protected static Map<String, Map<String,String>> message_Attributes = new HashMap<String, Map<String,String>>(10);
-	protected static final String TABLE_NAME = "NR_ADAPTER_ATTRIBUTES";
-	private static final String DROP_TABLE_SQL = "DROP TABLE " + TABLE_NAME;
-	private static boolean loggedDBType = false;
-
-	private static boolean initialized = false;
-	private static final String CommonConnectionImpl_Class = "com.sap.sql.jdbc.common.CommonConnectionImpl";
-	private static final String CommonConnectionHandle_Class = "com.sap.engine.services.dbpool.cci.CommonConnectionHandle";
-	public static final String MESSAGEID = "MessageId";
-	public static final String INPUT = "Input";
-	public static final String OUTPUT = "Output";
-	public static final String MESSAGE = "Message";
 	protected static final String MESSAGE_DOCUMENT = "MessageDocument";
 	protected static final String PAYLOAD_ATTRIBUTES = "PayLoad-Attributes";
-	protected static final String MESSAGE_PROPERTIES = "Message-Properity";
+	protected static final String MESSAGE_PROPERTIES = "Message-Property";
 	protected static final String MESSAGECONTEXT_IN_ATTRIBUTES = "MessageContext-In-Attributes";
 	protected static final String MESSAGECONTEXT_OUT_ATTRIBUTES = "MessageContext-Out-Attributes";
+	private static APIAccess apiAccess = null;
 
 	public static final String MAP_TYPE = "MapType";
-
-	private static synchronized void initialize() {
-		if(initialized) return;
-		Logger logger = NewRelic.getAgent().getLogger();
-		Connection connection = getConnectionToUse();
-		if(connection != null) {
+	
+	private static APIAccess getAPIAccess() {
+		if(apiAccess == null) {
 			try {
-				DatabaseMetaData dbMetaData = connection.getMetaData();
-				boolean found = false;
-				if(dbMetaData != null) {
-					ResultSet tables;
-					try {
-						tables = dbMetaData.getTables(null, null, TABLE_NAME, null);
-						found = false;
-						while(tables.next()) {
-							String tableName = tables.getString("TABLE_NAME");
-							if (tableName.equalsIgnoreCase(TABLE_NAME)) { // Important for case-insensitive databases
-								found = true;
-								logMessage("Found table " + tableName);
-								break;
-							}
-						}
-						tables.close();
-					} catch (SQLException e) {
-						logger.log(Level.FINER, e, "Failed while trying to find if table {0} exists",TABLE_NAME);
-						logErrorWithMessage("Failed to find table " + TABLE_NAME,e);
-					}
-					if(found) {
-						dropTable(connection);
-						logger.log(Level.FINE, "{0} dropped", TABLE_NAME);
-						logMessage("Dropped table " + TABLE_NAME);
-						initialized = true;
-					}
-				}
-				connection.close();
-			} catch (SQLException e) {
-				if(connection != null) {
-					try {
-						connection.close();
-					} catch (SQLException e1) {
-						logger.log(Level.FINER, e, "Failed to close connection after error while trying find or create table");
-					}
-				}
-				logger.log(Level.FINER, e, "Failed while trying find or create table {0}",TABLE_NAME);
-				logErrorWithMessage("Failed while trying to find or create table " + TABLE_NAME,e);
+				apiAccess = APIAccessFactory.getAPIAccess();
+			} catch (MessagingException e) {
 			}
 		}
+		return apiAccess;
 	}
 
-	private static void dropTable(Connection connection) throws SQLException {
-		Statement stmt = connection.createStatement();
-		stmt.executeUpdate(DROP_TABLE_SQL);
-		NewRelic.getAgent().getLogger().log(Level.FINE, "Dropped table {0}",TABLE_NAME);
-	}
 
-	protected static void setAttributes(Map<MessageKey, Map<String,String>> attributeMappings ) {
+	protected static void processAttributes(Map<MessageKey, Map<String,String>> attributeMappings ) {
 		long startTime = System.nanoTime();
-		logMessage("Call to setAttributes, will process " + attributeMappings.size() + " messagekeys");
 
-		if(!initialized) {
-			initialize();
-		}
-	
-		
 		List<MessageKey> msgKeys = new ArrayList<MessageKey>();
 		msgKeys.addAll(attributeMappings.keySet());
+		String[] msgKeysArray = new String[msgKeys.size()];
+		int index = 0;
 		
-		HashMap<MessageKey, ArrayList<IndexDataAttribute>> currentAttributes = DataAccess.readAttributesByMessageKeys(msgKeys);
-		
-		
-		Set<IndexDataAttribute> toUpdate = new HashSet<IndexDataAttribute>();
-		Set<MessageKey> toProcess = new HashSet<MessageKey>();
-		
-		
-		for(MessageKey messageKey : attributeMappings.keySet()) {
-			logMessage("In setAttributes, processing message key  " + messageKey);
-			Map<String,String> messageAttributes = attributeMappings.get(messageKey);
-			logMessage("Checking " + messageAttributes + " for MessageKey " + messageKey);
-			Map<String,String> attributesToReport = processAttributes(messageAttributes);
-			if(attributesToReport == null || attributesToReport.isEmpty()) {
-				logMessage("Skipping insert/update for messagekey " + messageKey + " no configured attributes found");
-				continue;
-			}
-			logMessage("There are " + attributesToReport.size() + " attributes to process for inserting/updating");
-			toProcess.add(messageKey);
+		for(MessageKey key : msgKeys) {
+			msgKeysArray[index] = key.getMessageId();
+			index++;
+		}
+
+		try {
+			MessageAccess messageAccess = getAPIAccess().getMessageAccess();
+			MessageDataFilter filter = messageAccess.createMessageDataFilter();
 			
-			ArrayList<IndexDataAttribute> currentForMessage = currentAttributes.get(messageKey);
-			int size = currentForMessage != null ? currentForMessage.size() : 0;
-			logMessage("There are " + size + " attributes from DataAccess for message key " + messageKey);
-			if(currentForMessage == null || currentForMessage.isEmpty()) {
-				for(String name : attributesToReport.keySet()) {
-					IndexDataAttributeImpl dataAttribute = new IndexDataAttributeImpl();
-					dataAttribute.setMessageKey(messageKey);
-					dataAttribute.setName(name);
-					dataAttribute.setValue(attributesToReport.get(name));
-					toUpdate.add(dataAttribute);
-				}
-			} else {
-				Map<String, IndexDataAttribute> existing = new Hashtable<String, IndexDataAttribute>();
-				for(IndexDataAttribute attr : currentForMessage) {
-					existing.put(attr.getName(), attr);
-				}
-				for(String name : attributesToReport.keySet()) {
-					IndexDataAttribute existingAttr = existing.get(name);
-					if(existingAttr != null) {
-						String value = attributesToReport.get(name);
-						if(!(value.equals(existingAttr.getValue()))) {
-							existingAttr.setValue(value);
-							toUpdate.add(existingAttr);
-						}
-					} else {
-						// new attribute
-						IndexDataAttributeImpl dataAttribute = new IndexDataAttributeImpl();
-						dataAttribute.setMessageKey(messageKey);
-						dataAttribute.setName(name);
-						dataAttribute.setValue(attributesToReport.get(name));
-						toUpdate.add(dataAttribute);
-						
-					}
-				}
-				
-			}
-		}
-		
-		if(!toUpdate.isEmpty()) {
-			logMessage("There are " + toUpdate.size() + " IndexDataAttributes to insert/update");
-			IndexDataAttribute[] updated = new IndexDataAttribute[toUpdate.size()];
-			toUpdate.toArray(updated);
-			DataAccess.upsert(updated);
-		}
-		
-		long endTime = System.nanoTime();
-		MessageMonitor.messageKeysToProcessDelayed(toProcess);
-		NewRelic.recordMetric("SAP/AttributeProcessor/SetAttributesTimer(ms)", (endTime-startTime)/1000000.0f);
-	}
-	
-	protected static void setAttributes(MessageKey messageKey, Map<String,String> attributes) {
-		long startTime = System.nanoTime();
-
-		if(!initialized) {
-			initialize();
-		}
-
-		if(attributes == null || attributes.isEmpty()) return;
-		
-		Map<String,String> attributesToReport = processAttributes(attributes);
-		if(attributesToReport.isEmpty()) {
-			logMessage("Skipping insert/update, no configured attributes found");
-			return;
-		}
-		
-		NewRelic.recordMetric("SAP/AttributeProcessor/AttributesToProcess", attributes.size());
-		logMessage("Checking to insert or update attributes for message id "+ messageKey.getMessageId() + ": " + attributes);
-
-			try {
-				IndexDataAttribute[] dataAttributes = DataAccess.readAttributesByMessageKey(messageKey);
-				logMessage("Read " + dataAttributes.length + " data attributes from DataAccess: " + Arrays.toString(dataAttributes));
-				if(dataAttributes == null || dataAttributes.length == 0) {
-					dataAttributes = new IndexDataAttribute[attributesToReport.size()];
-					int index = 0;
-					for(String key  : attributesToReport.keySet()) {
-						IndexDataAttributeImpl dataAttribute = new IndexDataAttributeImpl();
-						dataAttribute.setMessageKey(messageKey);
-						dataAttribute.setName(key);
-						String value = attributesToReport.get(key);
-						dataAttribute.setValue(value);
-						dataAttribute.setPosition(index);
-						dataAttributes[index] = dataAttribute;
-						index++;
-					}
-					DataAccess.upsert(dataAttributes);
-
-					
+			filter.setMessageIds(msgKeysArray);
+			MonitorData data = messageAccess.getMonitorData(filter);
+			LinkedList<MessageData> msgDataList = data.getMessageData();
+			HashMap<MessageKey, List<MessageData>> dataMapping = new HashMap<MessageKey, List<MessageData>>();
+			for(MessageData msgData : msgDataList) {
+				MessageKey msgKey = msgData.getMessageKey();
+				List<MessageData> list = dataMapping.get(msgKey);
+				if(list == null) {
+					list = new ArrayList<MessageData>();
+					list.add(msgData);
 				} else {
-					Map<String, IndexDataAttribute> attributeMap = new Hashtable<String, IndexDataAttribute>();
-					int index = dataAttributes.length;
-					
-					for(IndexDataAttribute existing : dataAttributes) {
-						String name = existing.getName();
-						attributeMap.put(name, existing);
-					}
-					boolean modified = false;
-					for(String key  : attributesToReport.keySet()) {
-						IndexDataAttribute indexData = attributeMap.get(key);
-						if(indexData != null) {
-							String existingValue = indexData.getValue();
-							String currentValue = attributesToReport.get(key);
-							if(existingValue == null || !existingValue.equalsIgnoreCase(currentValue)) {
-								indexData.setValue(currentValue);
-								modified = true;
-							}
-						} else {
-							IndexDataAttributeImpl dataAttribute = new IndexDataAttributeImpl();
-							dataAttribute.setMessageKey(messageKey);
-							dataAttribute.setName(key);
-							String value = attributesToReport.get(key);
-							dataAttribute.setValue(value);
-							dataAttribute.setPosition(index);
-							index++;
-							attributeMap.put(key, dataAttribute);
-							modified = true;
-						}
-					}
-					if(modified) {
-						dataAttributes = new IndexDataAttribute[attributeMap.size()];
-						int i = 0;
-						for(IndexDataAttribute dataAttribute : attributeMap.values()) {
-							dataAttributes[i] = dataAttribute;
-							i++;
-						}
-						DataAccess.upsert(dataAttributes);					
-					}
-					
+					list.add(msgData);
 				}
-				
-				AdapterMonitorLogger.logMessage("Inserted " + dataAttributes.length + " using DataAccess");
-			} catch (Exception e) {
-				AdapterMonitorLogger.logErrorWithMessage("Error while trying to set attributes", e);
+				dataMapping.put(msgKey, list);
 			}
 
-		long endTime = System.nanoTime();
-		NewRelic.recordMetric("SAP/AttributeProcessor/SetAttributesTimer(ms)", (endTime-startTime)/1000000.0f);
-		MessageMonitor.messageKeyToProcessDelayed(new MessageToProcess(messageKey));
-	}
-	
-	public static HashMap<MessageKey, Map<String,String>> getCurrentAttributes(List<MessageKey> messageKeys) {
-		HashMap<MessageKey, ArrayList<IndexDataAttribute>> attributeMapping = DataAccess.readAttributesByMessageKeys(messageKeys);
-		HashMap<MessageKey, Map<String,String>> mapping = new HashMap<MessageKey, Map<String,String>>();
-		
-		if(!attributeMapping.isEmpty()) {
-			for(MessageKey msgKey : attributeMapping.keySet()) {
-				ArrayList<IndexDataAttribute> current = attributeMapping.get(msgKey);
-				if(current != null) {
-					HashMap<String, String> currentAttributes = new HashMap<String, String>();
-					for(IndexDataAttribute attr : current) {
-						if(attr != null) {
-							currentAttributes.put(attr.getName(), attr.getValue());
-						}
+
+			for(MessageKey msgKey : msgKeys) {
+				Map<String,String> attributeMapping = attributeMappings.get(msgKey);
+				if(attributeMapping != null && !attributeMapping.isEmpty()) {
+					Map<String,String> attributesToReport = findConfiguredAttributes(attributeMapping);
+					if(attributesToReport == null || attributesToReport.isEmpty()) {
+						continue;
 					}
-					mapping.put(msgKey, currentAttributes);
+					
+					List<MessageData> list = dataMapping.get(msgKey);
+					if (list != null) {
+						for (MessageData msgData : list) {
+							String jsonString = MessageLoggingProcessor.getLogJson(msgData, attributesToReport);
+							AdapterMessageLogger.log(jsonString);
+						} 
+					}
+					
+					
 				}
 			}
+		} catch (InvalidParamException e) {
+			NewRelic.getAgent().getLogger().log(Level.FINER, e, "Failed to get MonitorData due to InvalidParamException");
+		} catch (MessageAccessException e) {
+			NewRelic.getAgent().getLogger().log(Level.FINER, e, "Failed to get MonitorData due to MessageAccessException");
 		}
-		return mapping;
+		
+		long endTime = System.nanoTime();
+		NewRelic.recordMetric("SAP/AttributeProcessor/SetAttributesTimer(ms)", (endTime-startTime)/1000000.0f);
+	}
+	
+	public static void recordMessageAndContext(TransportableMessage message, Map<String, Object> context) {
+		TransportableMessage cloned = null;
+		try {
+			cloned = (TransportableMessage) message.clone();
+		} catch (CloneNotSupportedException e) {
+		}
+		if(cloned == null) {
+			cloned = message;
+		}
+		
+		Map<String, Object> contextCopy = new HashMap<String, Object>(context);
+		
+		AttributeChecker.addDataToQueue(new MessageAndContextHolder(cloned, contextCopy));
 	}
 	
 	@SuppressWarnings("rawtypes")
-	public static Map<String,Map<String,String>> recordObject(Object requestMessage) {
+	protected static Map<String,Map<String,String>> recordObject(Object requestMessage) {
 		
 		Map<String,Map<String,String>> result = new HashMap<String, Map<String,String>>();
 		
 
 		if(requestMessage instanceof Message) {
 			Message message = (Message)requestMessage;
+			Map<String,String> attributes3 = new HashMap<String, String>();
+			for(MessagePropertyKey propertyKey : message.getMessagePropertyKeys()) {
+				String value = message.getMessageProperty(propertyKey);
+				String name = propertyKey.getPropertyName();
+				attributes3.put(name, value);
+				AttributeMonitorLogger.addAttribute(propertyKey);
+			}
+			result.put(MESSAGE_PROPERTIES, attributes3);
 
 			XMLPayload document = message.getDocument();
 			try {
@@ -341,13 +178,6 @@ public class AttributeProcessor {
 				}
 				result.put(PAYLOAD_ATTRIBUTES, attributes2);
 				
-				Map<String,String> attributes3 = new HashMap<String, String>();
-				for(MessagePropertyKey propertyKey : message.getMessagePropertyKeys()) {
-					String value = message.getMessageProperty(propertyKey);
-					String name = propertyKey.toString();
-					attributes3.put(name, value);
-				}
-				result.put(MESSAGE_PROPERTIES, attributes3);
 				
 				
 			} catch (Exception e) {
@@ -424,7 +254,7 @@ public class AttributeProcessor {
 	}
 
 
-	public static Document loadXMLFromString(String xml) throws Exception {
+	private static Document loadXMLFromString(String xml) throws Exception {
 		InputStream stream = new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8));
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder builder = factory.newDocumentBuilder();
@@ -436,7 +266,6 @@ public class AttributeProcessor {
 		if(!AttributeChecker.initialized) {
 			AttributeChecker.startChecker();
 		}
-		AdapterMonitorLogger.logMessage("Added ModuleContext " + moduleContext + " and ModuleData " + moduleData + " to processing queue");
 		ModuleData md = new ModuleData();
 		Object principal = moduleData.getPrincipalData();
 		if(principal instanceof AbstractMessage) {
@@ -469,90 +298,12 @@ public class AttributeProcessor {
 		AttributeChecker.addDataToQueue(new ModuleDataHolder(md, ctx));
 	}
 
-	private static Connection getConnectionToUse() {
-		try {
-			ConnectionManager connectionMgr = ConnectionManager.getInstance();
-			logMessage("ConnectionManager type: " + connectionMgr.getClass().getName());
-			Connection connectionFromMgr = connectionMgr.getNoTXDBConnection();
-			if (connectionFromMgr != null) {
-				DatabaseMetaData metaData = connectionFromMgr.getMetaData();
-				Map<String, Object> metaDataMap = new HashMap<String, Object>();
-				if (!loggedDBType) {
-					metaDataMap.put("Parent-Database-Product", metaData.getDatabaseProductName());
-					metaDataMap.put("Parent-Database-Product-Version", metaData.getDatabaseProductVersion());
-					metaDataMap.put("Parent-Database-Driver", metaData.getDriverName());
-					metaDataMap.put("Parent-Database-Driver-Version", metaData.getDriverVersion());
-				}
-				Class<?> connectionClass = connectionFromMgr.getClass();
-				String classname = connectionClass.getName();
-				logMessage("Connection from ConnectionManager: " + classname);
-
-				if (classname.equalsIgnoreCase("com.sap.engine.services.dbpool.cci.ConnectionHandle")
-						|| classname.equalsIgnoreCase(CommonConnectionHandle_Class)
-						|| classname.equalsIgnoreCase(CommonConnectionImpl_Class)) {
-					try {
-						Method getPhysicalConnection = connectionClass.getMethod("getPhysicalConnection",new Class<?>[0]);
-						Object physicalConn = getPhysicalConnection.invoke(connectionFromMgr, new Object[0]);
-						logMessage("Got PhysicalConnection: " + physicalConn);
-						if (physicalConn != null) {
-							Class<?> physicalConnClass = physicalConn.getClass();
-							String physicalConnectionType = physicalConnClass.getName();
-							if (physicalConnectionType.equalsIgnoreCase(CommonConnectionImpl_Class)) {
-								try {
-									Method getExtendedPooledConnectionMethod = physicalConnClass.getMethod("getExtendedPooledConnection", new Class[0]);
-									Object extendedConn = getExtendedPooledConnectionMethod.invoke(physicalConn,new Object[0]);
-									logMessage("Got ExtendedConnection: " + extendedConn);
-									if (extendedConn != null) {
-										Class<?> extendedConnectionClasss = extendedConn.getClass();
-										Method getWrappedConnectionMethod = extendedConnectionClasss.getMethod("getWrappedConnection", new Class<?>[0]);
-										Object wrappedCon = getWrappedConnectionMethod.invoke(extendedConn,new Object[0]);
-										if (wrappedCon != null && wrappedCon instanceof Connection) {
-											Connection wrappedConnection = (Connection)wrappedCon;
-											if (!loggedDBType) {
-												metaData = wrappedConnection.getMetaData();
-												metaDataMap.put("Wrapped-Database-Product", metaData.getDatabaseProductName());
-												metaDataMap.put("Wrapped-Database-Product-Version", metaData.getDatabaseProductVersion());
-												metaDataMap.put("Wrapped-Database-Driver", metaData.getDriverName());
-												metaDataMap.put("Wrapped-Database-Driver-Version", metaData.getDriverVersion());
-												NewRelic.getAgent().getInsights().recordCustomEvent("SAP_Adapter_DBConnection", metaDataMap);
-												loggedDBType = true;
-											}
-											logMessage("Connection to use set to " + wrappedConnection);
-											return wrappedConnection;
-										}
-									}
-								} catch (Exception e) {
-									NewRelic.getAgent().getLogger().log(Level.FINE, e,"Failed to get connection to use from CommonConnectionImpl");
-									logErrorWithMessage("Failed to get connection to use from CommonConnectionImpl", e);
-								}
-							} else {
-
-							}
-						}
-					} catch (Exception e) {
-						NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to get connection");
-						logErrorWithMessage("Failed to get connection", e);
-					}
-				} else {
-					return connectionFromMgr;
-				} 
-			}
-
-
-		} catch (SQLException e) {
-			NewRelic.getAgent().getLogger().log(Level.FINE,e, "AttributeProcessor failed to aquire connection");
-			logErrorWithMessage("AttributeProcessor failed to aquire connection", e);
-		}		
-		return null;
-	}
-	
-	private static Map<String,String> processAttributes(Map<String,String> currentAttributes) {
+	private static Map<String,String> findConfiguredAttributes(Map<String,String> currentAttributes) {
 		AttributeConfig config = AttributeConfig.getInstance();
 		Map<String,String> attributesToReport = new HashMap<String, String>();
 		if (config.collectingUserAttributes()) {
 			Set<String> toCollect = config.attributesToCollect();
 			Set<String> currentKeys = currentAttributes != null ? currentAttributes.keySet() : new HashSet<String>();
-			logMessage("Will compare " + currentKeys + " to " + toCollect + " for matches");
 			Set<String> modifedKeys = new HashSet<String>();
 			HashMap<String, String> keyMapping = new HashMap<String, String>();
 
@@ -596,8 +347,6 @@ public class AttributeProcessor {
 			}
 
 		}
-
-		logMessage("Found " + attributesToReport + " matches");
 
 		return attributesToReport;
 	}

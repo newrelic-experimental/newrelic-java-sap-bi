@@ -26,7 +26,6 @@ public class ModuleDataHolder implements DataHolder {
 		return moduleContext;
 	}
 
-	@Override
 	public boolean retry() {
 		int count = invocations.incrementAndGet();
 		return count < MAX_RETRIES;

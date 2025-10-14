@@ -2,13 +2,16 @@ package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.newrelic.agent.config.ConfigFileHelper;
+import com.newrelic.agent.deps.com.google.gson.Gson;
 import com.newrelic.api.agent.NewRelic;
+import com.sap.engine.interfaces.messaging.api.MessagePropertyKey;
 
 public class AttributeMonitorLogger {
 	
@@ -55,6 +58,27 @@ public class AttributeMonitorLogger {
 		initialized = true;
 	}
 	
+	public static synchronized void addAttribute(MessagePropertyKey attribute) {
+		if(!enabled) return;
+		
+		if(!initialized) {
+			init();
+		}
+ 
+		String key = AttributeProcessor.MESSAGE_PROPERTIES + "-" + attribute.getPropertyName();
+		if(!attributes.contains(key)) {
+			attributes.add(key);
+			HashMap<String, String> map = new HashMap<String, String>();
+			map.put("Source", AttributeProcessor.MESSAGE_PROPERTIES);
+			map.put("Property-Name", attribute.getPropertyName());
+			map.put("Property-Namespace", attribute.getPropertyNamespace());
+			Gson gson = new Gson();
+			String json = gson.toJson(map);
+			logMessage(json);
+		}
+		
+	}
+	
 	public static synchronized void addAttribute(String attribute, String source) {
 		if(!enabled) return;
 		
@@ -64,7 +88,12 @@ public class AttributeMonitorLogger {
 		String key = source + "-" + attribute;
 		if(!attributes.contains(key)) {
 			attributes.add(key);
-			logMessage(key);
+			HashMap<String, String> map = new HashMap<String, String>();
+			map.put("Source", source);
+			map.put("Attribute", attribute);
+			Gson gson = new Gson();
+			String json = gson.toJson(map);
+			logMessage(json);
 		}
 	}
 
@@ -73,5 +102,6 @@ public class AttributeMonitorLogger {
 			LOGGER.log(Level.INFO, message);
 		}
 	}
-		
+	
+	
 }

@@ -74,12 +74,6 @@ public class AdapterMessageLogger implements AgentConfigListener {
 			return;
 		}
 
-//		Long freq = currentConfig.getFrequency();
-//		if(freq != null) {
-//			MessageMonitor.changeFrequncy(freq);
-//		}
-		
-
 		HashMap<String, Object> currentSettings = currentConfig.getCurrentSettings();
 		if(currentSettings != null) {
 			NewRelic.getAgent().getInsights().recordCustomEvent("MessageAdapterLog", currentSettings);

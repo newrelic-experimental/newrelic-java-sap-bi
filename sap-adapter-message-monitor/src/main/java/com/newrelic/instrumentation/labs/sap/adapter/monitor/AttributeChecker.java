@@ -22,6 +22,7 @@ import com.sap.aii.af.lib.mp.module.ModuleContext;
 import com.sap.aii.af.lib.mp.module.ModuleData;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
+import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 
 public class AttributeChecker implements Runnable {
 
@@ -53,9 +54,8 @@ public class AttributeChecker implements Runnable {
 				AttributeChecker checker = new AttributeChecker(i);
 				NewRelicExecutors.addScheduledTask(() -> {
 					NewRelicExecutors.addRunnableToThreadPool(checker);
-					AdapterMonitorLogger.logMessage("AttributeChecker "+ checker.index + " has been started");
 				}, i-1,TimeUnit.MINUTES);
-				
+				AdapterMonitorLogger.logMessage("Started AttributeChecker #" + checker.index);
 						
 			}
 			initialized = true;
@@ -75,20 +75,21 @@ public class AttributeChecker implements Runnable {
 
 	@Override
 	public void run() {
-		AdapterMonitorLogger.logMessage("Call to AttributeChecker.run() for checker " + index);
 		
 		while(true) {
 			try {
-				AdapterMonitorLogger.logMessage("Processing attributes on checker " + index);
 				Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
 				int toProcess = queue.drainTo(dataHoldersToProcess, 50);
-				AdapterMonitorLogger.logMessage("Popped " + toProcess + " DataHolders from queue on checker " + index);
 				
-				if(toProcess > 0) {
-					processDataHolders(dataHoldersToProcess);
+				try {
+					if(toProcess > 0) {
+						processDataHolders(dataHoldersToProcess);
+					}
+				} catch (Exception e) {
+					NewRelic.getAgent().getLogger().log(Level.FINER, e, "Error occurred trying to take holder from queue");
+					AdapterMonitorLogger.logErrorWithMessage("Error occurred trying to take holder from queue",e);			
 				}
 				
-				long start = System.currentTimeMillis();
 				Timer timer = new Timer();
 				CompletableFuture<Boolean> future = new CompletableFuture<Boolean>();
 				
@@ -108,8 +109,6 @@ public class AttributeChecker implements Runnable {
 				} catch (Exception e) {
 				}
 				
-				long end = System.currentTimeMillis();
-				AdapterMonitorLogger.logMessage("Waited for " + DELAY + " before continuing, actual time is " + (end - start) + " ms");
 				
 			} catch (Exception e) {
 				NewRelic.getAgent().getLogger().log(Level.FINER, e, "Error occurred trying to take holder from queue");
@@ -123,7 +122,6 @@ public class AttributeChecker implements Runnable {
 	
 	@SuppressWarnings("rawtypes")
 	private void processDataHolders(Collection<DataHolder> dataHolders) {
-		AdapterMonitorLogger.logMessage("Call to processDataHolders, there are " + dataHolders + " dataholders to process");
 		Map<MessageKey, Map<String,String>> attributeMappings = new HashMap<MessageKey, Map<String,String>>();
 		long startOfAll = System.currentTimeMillis();
 		
@@ -140,7 +138,6 @@ public class AttributeChecker implements Runnable {
 						messageKey = message.getMessageKey();
 					}
 				}
-				AdapterMonitorLogger.logMessage("Processing attributes for " + messageKey + " from ModuleContext and ModuleData: " + moduleContext + ", " + moduleData);
 				long start = System.currentTimeMillis();
 				Map<String, String> values = new LinkedHashMap<String, String>();
 				if (moduleContext != null) {
@@ -170,37 +167,81 @@ public class AttributeChecker implements Runnable {
 					Map<String,Map<String,String>> attributesFromMsg = AttributeProcessor.recordObject(principalData);
 					if(attributesFromMsg != null && !attributesFromMsg.isEmpty()) {
 						Map<String,String> msgAttributes = attributesFromMsg.get(AttributeProcessor.MESSAGE_DOCUMENT);
-						Set<String> keys = msgAttributes.keySet();
-						for(String key : keys) {
-							AttributeMonitorLogger.addAttribute(key, AttributeProcessor.MESSAGE_DOCUMENT);
+						if (msgAttributes != null) {
+							Set<String> keys = msgAttributes.keySet();
+							for (String key : keys) {
+								AttributeMonitorLogger.addAttribute(key, AttributeProcessor.MESSAGE_DOCUMENT);
+							}
+							values.putAll(msgAttributes);
+							Map<String, String> payloadAttributes = attributesFromMsg
+									.get(AttributeProcessor.PAYLOAD_ATTRIBUTES);
+							for (String key : payloadAttributes.keySet()) {
+								AttributeMonitorLogger.addAttribute(key, AttributeProcessor.PAYLOAD_ATTRIBUTES);
+							}
+							values.putAll(payloadAttributes);
+							Map<String, String> msgProperties = attributesFromMsg
+									.get(AttributeProcessor.MESSAGE_PROPERTIES);
+							values.putAll(msgProperties);
 						}
-						values.putAll(msgAttributes);
-						
-						Map<String,String> payloadAttributes = attributesFromMsg.get(AttributeProcessor.PAYLOAD_ATTRIBUTES);
-						for(String key : payloadAttributes.keySet()) {
-							AttributeMonitorLogger.addAttribute(key, AttributeProcessor.PAYLOAD_ATTRIBUTES);
-						}
-						values.putAll(payloadAttributes);
-						
-						Map<String,String> msgProperties = attributesFromMsg.get(AttributeProcessor.MESSAGE_PROPERTIES);
-						for(String key : msgProperties.keySet()) {
-							AttributeMonitorLogger.addAttribute(key, AttributeProcessor.MESSAGE_PROPERTIES);
-						}
-						values.putAll(payloadAttributes);
 						
 					}
 				}
-				AdapterMonitorLogger.logMessage("Collected " + values.size() + " attributes for message key " + messageKey);
-				AdapterMonitorLogger.logMessage("Attributes for message key " + messageKey + " are " +  values);
-				attributeMappings.put(messageKey, values);
+				if(attributeMappings.containsKey(messageKey)) {
+					Map<String,String> existing = attributeMappings.get(messageKey);
+					if(existing != null) {
+						values.putAll(existing);
+					}					
+					attributeMappings.put(messageKey, values);
+				} else {
+					attributeMappings.put(messageKey, values);
+				}
 				long end = System.currentTimeMillis();
 				NewRelic.recordMetric("SAP/AttributeProcess/TimeToProcessKey", end-start);
-			} 
+				NewRelic.recordMetric("SAP/AttributeProcess/ModuleDataHolder", 1.0f);
+			} else if(holder instanceof MessageAndContextHolder) {
+				long start = System.currentTimeMillis();
+				MessageAndContextHolder msgCtxHolder = (MessageAndContextHolder)holder;
+				TransportableMessage msg = msgCtxHolder.getMessage();
+				MessageKey messageKey = msg.getMessageKey();
+				Map<String, String> values = new LinkedHashMap<String, String>();
+				Map<String,Map<String,String>> attributesFromMsg = AttributeProcessor.recordObject(msg);
+				if(attributesFromMsg != null && !attributesFromMsg.isEmpty()) {
+					Map<String,String> msgAttributes = attributesFromMsg.get(AttributeProcessor.MESSAGE_DOCUMENT);
+					Set<String> keys = msgAttributes.keySet();
+					for(String key : keys) {
+						AttributeMonitorLogger.addAttribute(key, AttributeProcessor.MESSAGE_DOCUMENT);
+					}
+					values.putAll(msgAttributes);
+					
+					Map<String,String> payloadAttributes = attributesFromMsg.get(AttributeProcessor.PAYLOAD_ATTRIBUTES);
+					for(String key : payloadAttributes.keySet()) {
+						AttributeMonitorLogger.addAttribute(key, AttributeProcessor.PAYLOAD_ATTRIBUTES);
+					}
+					values.putAll(payloadAttributes);
+					
+					Map<String,String> msgProperties = attributesFromMsg.get(AttributeProcessor.MESSAGE_PROPERTIES);
+					values.putAll(msgProperties);
+					
+				}
+
+				if(attributeMappings.containsKey(messageKey)) {
+					Map<String,String> existing = attributeMappings.get(messageKey);
+					if(existing != null) {
+						values.putAll(existing);
+					}					
+					attributeMappings.put(messageKey, values);
+				} else {
+					attributeMappings.put(messageKey, values);
+				}
+				long end = System.currentTimeMillis();
+				NewRelic.recordMetric("SAP/AttributeProcess/TimeToProcessKey", end-start);
+				NewRelic.recordMetric("SAP/AttributeProcess/MessageContextDataHolder", 1.0f);
+
+			}
 		}
 		
 		if(!attributeMappings.isEmpty()) {
-			AdapterMonitorLogger.logMessage("Reporting attributes for  " + attributeMappings.size() + " message keys");
-			AttributeProcessor.setAttributes(attributeMappings);
+			AttributeProcessor.processAttributes(attributeMappings);
 		}
 		long endAll = System.currentTimeMillis();
 		NewRelic.recordMetric("SAP/AttributeProcess/TimeToProcessAllKeys", endAll-startOfAll);
