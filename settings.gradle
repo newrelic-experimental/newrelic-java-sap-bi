@@ -1,4 +1,4 @@
-rootProject.name = 'java-instrumentation-template'
+rootProject.name = 'SAP-PI/PO-Instrumentation'
 include 'sap-adapters'
 include 'sap-adaptermonitor'
 include 'sap-adapters-ejb'
