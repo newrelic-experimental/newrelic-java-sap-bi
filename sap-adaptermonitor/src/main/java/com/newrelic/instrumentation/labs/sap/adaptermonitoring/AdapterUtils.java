@@ -6,6 +6,8 @@ import com.newrelic.agent.environment.AgentIdentity;
 import com.newrelic.agent.environment.Environment;
 import com.newrelic.agent.environment.EnvironmentService;
 import com.newrelic.agent.service.ServiceFactory;
+import com.newrelic.api.agent.NewRelic;
+import com.newrelic.api.agent.Token;
 import com.sap.aii.af.service.administration.api.monitoring.ChannelState;
 import com.sap.aii.af.service.cpa.Channel;
 import com.sap.engine.interfaces.messaging.api.Message;
@@ -21,6 +23,19 @@ public class AdapterUtils {
 	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
 	private static Environment agentEnvironment = environmentService.getEnvironment();
 
+	public static NRRunnable getWrapper(Runnable r) {
+		if(!(r instanceof NRRunnable)) {
+			Token t = NewRelic.getAgent().getTransaction().getToken();
+			if(t != null && t.isActive()) {
+				return new NRRunnable(r, t);
+			} else {
+				t.expire();
+				t = null;
+			}
+		}
+		
+		return null;
+	}
 	public static void addInstanceName(Map<String, Object> attributes) {
 		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
 		String instanceId = agentIdentity != null ? agentIdentity.getInstanceName() : null;
