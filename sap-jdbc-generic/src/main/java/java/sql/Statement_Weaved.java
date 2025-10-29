@@ -13,9 +13,13 @@ import java.util.logging.Level;
 
 import com.newrelic.agent.Transaction;
 import com.newrelic.agent.TransactionActivity;
+import com.newrelic.agent.bridge.AgentBridge;
+import com.newrelic.agent.bridge.ExitTracer;
 import com.newrelic.agent.bridge.datastore.DatastoreMetrics;
 import com.newrelic.agent.tracers.ClassMethodSignature;
+import com.newrelic.agent.tracers.ClassMethodSignatures;
 import com.newrelic.agent.tracers.DefaultSqlTracer;
+import com.newrelic.agent.tracers.DefaultTracer;
 import com.newrelic.agent.tracers.Tracer;
 import com.newrelic.agent.tracers.TracerFlags;
 import com.newrelic.agent.tracers.metricname.SimpleMetricNameFormat;
@@ -33,330 +37,388 @@ public abstract class Statement_Weaved {
 
 
 	public ResultSet executeQuery(String sql) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "executeQuery",
-						"(Ljava.lang.String;)Ljava.sql.ResultSet;");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "executeQuery", "(Ljava.lang.String;)Ljava.sql.ResultSet;");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/executeQuery";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/executeQuery"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
-
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
 		}
 
-		ResultSet rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
+		ResultSet rs = null;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
 			}
+			throw e;
+		}
+		
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;
 	}
 
 	public int executeUpdate(String sql) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "executeUpdate",
-						"(Ljava.lang.String;)I");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "executeUpdate", "(Ljava.lang.String;)I");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/executeUpdate";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/executeUpdate"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
-
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
 		}
 
-		int rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
+		int rs = 0;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
 			}
+			throw e;
+		}
+		
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;	
 	}
 
 	public boolean execute(String sql) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "execute",
-						"(Ljava.lang.String;)Z");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "execute", "(Ljava.lang.String;)Z");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/execute";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/execute"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
-
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
 		}
 		
-		boolean rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
+		boolean rs = false;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
 			}
+			throw e;
+		}
+		
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;		
 	}
 
 	public int executeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "executeUpdate",
-						"(Ljava.lang.String;I)I");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "executeUpdate", "(Ljava.lang.String;I)I");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/executeUpdate";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/executeUpdate"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
+		}
 
+		int rs = 0;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
+			}
+			throw e;
 		}
 		
-		int rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
-			}
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;		
 	}
 
 	public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "executeUpdate",
-						"(Ljava.lang.String;[I)I");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "executeUpdate", "(Ljava.lang.String;[I)I");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/executeUpdate";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/executeUpdate"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
+		}
 
+		int rs = 0;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
+			}
+			throw e;
 		}
 		
-		int rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
-			}
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;		
 	}
 
 	public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "execute",
-						"(Ljava.lang.String;I)Z");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "execute", "(Ljava.lang.String;I)Z");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/execute";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/execute"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
-
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
 		}
 		
-		boolean rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
+		boolean rs = false;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
 			}
+			throw e;
+		}
+		
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;		
 	}
 
 	public int executeUpdate(String sql, String[] columnNames) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "executeUpdate",
-						"(Ljava.lang.String;[Ljava.lang.String;)I");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "executeUpdate", "(Ljava.lang.String;[Ljava.lang.String;)I");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/executeUpdate";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/executeUpdate"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
+		}
 
+		int rs = 0;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
+			}
+			throw e;
 		}
 		
-		int rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
-			}
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;		
 	}
 
 	public boolean execute(String sql, String[] columnNames) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "execute",
-						"(Ljava.lang.String;[Ljava.lang.String;)Z");
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "execute", "(Ljava.lang.String;[Ljava.lang.String;)Z");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
+			}
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/execute";
 				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/execute"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				String classname = getClass().getName();
-				if(!skipped.contains(classname)) {
-					NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
-					skipped.add(classname);
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
 				}
 			}
-
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
 		}
 		
-		boolean rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
+		boolean rs = false;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
 			}
+			throw e;
+		}
+		
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;		
 	}
 
 	public boolean execute(String sql, int[] columnIndexes) throws SQLException {
-		Transaction transaction = null;
-		DefaultSqlTracer tracer = null;
+		ExitTracer tracer = null;
 		boolean isMatch = checkClass();
 		if(isMatch) {
-			transaction = Transaction.getTransaction();
-			if (transaction != null) {
-				ClassMethodSignature sig = new ClassMethodSignature(getClass().getName(), "execute",
-						"(Ljava.lang.String;[I)Z");
-				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
-				tracer = new DefaultSqlTracer(transaction, sig, this,
-						new SimpleMetricNameFormat("JDBC/PreparedStatement/execute"), tracerFlags);
-				TransactionActivity txa = transaction.getTransactionActivity();
-				Tracer parent = txa.getLastTracer();
-				tracer.setParentTracer(parent);
-				DatastoreMetrics.noticeSql(getConnection(), sql, null);
-				txa.tracerStarted(tracer);
-			} else {
-				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+			// Create tracer using AgentBridge.createSqlTracer pattern
+			ClassMethodSignature signature = new ClassMethodSignature(getClass().getName(), "execute", "(Ljava.lang.String;[I)Z");
+			int index = ClassMethodSignatures.get().getIndex(signature);
+			if(index == -1) {
+				index = ClassMethodSignatures.get().add(signature);
 			}
-
+			
+			if(index >= 0) {
+				String metricName = "JDBC/Statement/execute";
+				int tracerFlags = DefaultSqlTracer.DEFAULT_TRACER_FLAGS | TracerFlags.LEAF;
+				tracer = AgentBridge.instrumentation.createSqlTracer(this, index, metricName, tracerFlags);
+				if(tracer != null) {
+					DatastoreMetrics.noticeSql(getConnection(), sql, null);
+				}
+			}
+		} else {
+			String classname = getClass().getName();
+			if(!skipped.contains(classname)) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "In statement {0}, skipping tracer creation", getClass().getName());
+				skipped.add(classname);
+			}
 		}
 		
-		boolean rs = Weaver.callOriginal();
-
-		if(isMatch) {
-			if(transaction != null && tracer != null) {
-				tracer.finish(176, (Object)null);
+		boolean rs = false;
+		try {
+			rs = Weaver.callOriginal();
+		} catch (Exception e) {
+			if(tracer != null) {
+				tracer.finish(e);
 			}
+			throw e;
+		}
+		
+		if(tracer != null) {
+			tracer.finish(0, rs);
 		}
 		return rs;		
 	}
