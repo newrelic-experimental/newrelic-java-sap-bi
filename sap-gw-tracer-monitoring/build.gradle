@@ -21,7 +21,7 @@ jar {
     attributes 'Implementation-Title': 'com.newrelic.instrumentation.labs.sap-gw-tracer-monitoring'
     attributes 'Implementation-Vendor': 'New Relic Labs'
     attributes 'Implementation-Vendor-Id': 'com.newrelic.labs'
-    attributes 'Implementation-Version': 1.0
+    attributes 'Implementation-Version': project.parent.ext.implementationVersion
   }
 }
 

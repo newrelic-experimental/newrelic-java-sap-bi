@@ -23,6 +23,9 @@ plugins {
 project.ext {
   group = 'com.newrelic.instrumentation.labs'
   javaAgentVersion = '7.4.0'
+  
+  // Global implementation version - update this for all releases
+  implementationVersion = '1.5.0'
 
   // Aligned with minimum Java major version supported by latest Java Agent
   javaVersion = JavaVersion.VERSION_1_8
