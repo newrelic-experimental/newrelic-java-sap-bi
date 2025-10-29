@@ -4,13 +4,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 
 import com.newrelic.agent.deps.com.google.gson.Gson;
@@ -28,24 +23,17 @@ import com.sap.engine.interfaces.messaging.api.Party;
 import com.sap.engine.interfaces.messaging.api.Service;
 import com.sap.engine.interfaces.messaging.api.exception.MessageFormatException;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
-import com.sap.engine.interfaces.messaging.api.message.MessageAccess;
 import com.sap.engine.interfaces.messaging.api.message.MessageAccessException;
 import com.sap.engine.interfaces.messaging.api.message.MessageData;
-import com.sap.engine.interfaces.messaging.api.message.MessageDataFilter;
-import com.sap.engine.interfaces.messaging.api.message.MonitorData;
 import com.sap.engine.interfaces.messaging.spi.KeyFields;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 import com.sap.engine.interfaces.messaging.spi.transport.TransportHeaders;
 
-public class MessageMonitor implements Runnable {
+public class MessageLoggingProcessor {
 
-	public static boolean initialized = false;
-	private static MessageMonitor INSTANCE = null;
 	private static final String NOT_REPORTED = "Not_Reported";
 	private static final String EMPTY_STRING = "Empty_String";
 	private static APIAccess apiAccess = null;
-	private static BlockingQueue<MessageToProcess> messageKeysToProcess = new LinkedBlockingQueue<MessageToProcess>();
-	private static final long delay = 10000L;
 
 	private static APIAccess getAPIAccess() {
 		if(apiAccess == null) {
@@ -57,85 +45,10 @@ public class MessageMonitor implements Runnable {
 		return apiAccess;
 	}
 
-	private MessageMonitor() {
+	private MessageLoggingProcessor() {
 	}
 	
-	public static void messageKeyToProcessDelayed(MessageToProcess messageToProcess) {
-		TimerTask task = new TimerTask() {
-			
-			@Override
-			public void run() {
-				addMessageKeyToProcess(messageToProcess);
-			}
-		};
-		Timer timer = new Timer();
-		timer.schedule(task, delay);
-	}
-
-	private static void addMessageKeyToProcess(MessageToProcess messageToProcess) { 
-		messageKeysToProcess.add(messageToProcess);
-	}
-
-	@Override
-	public void run() {
-
-		while(true) {
-			try {
-				MessageToProcess toProcess = messageKeysToProcess.take();
-				MessageKey messageKey = toProcess.getMessageKey();
-				AdapterMonitorLogger.logMessage("In MessageMonitor, processing message key " + messageKey);
-				MessageAccess messageAccess = getAPIAccess().getMessageAccess();
-				MessageDataFilter filter = messageAccess.createMessageDataFilter();
-				String messageId = messageKey.getMessageId();
-				filter.setMessageId(messageId);
-				MonitorData monitorData = messageAccess.getMonitorData(filter);
-				if (monitorData != null) {
-					LinkedList<MessageData> messageDataList = monitorData.getMessageData();
-					int count = messageDataList.size();
-					if(count == 0) {
-						toProcess.incrementRetries();
-						if(toProcess.retry()) {
-							AdapterMonitorLogger.logMessage("retry " + toProcess.getRetries() + " to get attributes for message key " + messageKey);
-							messageKeyToProcessDelayed(toProcess);
-						} else {
-							AdapterMonitorLogger.logMessage("Did not get MessageData after max retries for message key " + messageKey);
-						}
-					}
-					AdapterMonitorLogger.logMessage("There are " + count + " MessageData objects");
-					NewRelic.recordMetric("SAP/AdapterMessageMonitor/MessagesToProcess", count);
-					for (MessageData data : messageDataList) {
-						MessageKey msgKey = data.getMessageKey();
-						Map<String, String> messageAttributes = null;
-						messageAttributes = AttributeProcessor.getMessageAttributes(msgKey);
-						int size = messageAttributes != null ? messageAttributes.size() : 0;
-						NewRelic.recordMetric("SAP/AdapterMessageMonitor/AttributesRetrieved", size);
-						String jsonString = getLogJson(data, messageAttributes);
-						AdapterMessageLogger.log(jsonString);
-					} 
-				}
-				AdapterMonitorLogger.logMessage("In MessageMonitor, finished processing message key " + messageKey);
-
-			} catch (Exception e) {
-				AdapterMonitorLogger.logErrorWithMessage("Error processing message key", e);
-			}
-
-		}
-	}
-
-	public static void initialize() {
-		if(!initialized) {
-			if(INSTANCE == null) {
-				INSTANCE = new MessageMonitor();
-			}
-
-			NewRelicExecutors.addRunnableToThreadPool(INSTANCE);
-			initialized = true;
-
-		}
-	}
-
-
-	private static String getLogJson(MessageData msgdata, Map<String,String> currentAttributes) {
+	protected static String getLogJson(MessageData msgdata, Map<String,String> currentAttributes) {
 		LinkedHashMap<String, Object> attributes = new LinkedHashMap<String, Object>();
 		AttributeConfig config = AttributeConfig.getInstance();
 		MessageKey messageKey = msgdata.getMessageKey();
