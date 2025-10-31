@@ -22,7 +22,7 @@ jar {
     attributes 'Implementation-Vendor': 'New Relic Labs'
     attributes 'Implementation-Vendor-Id': 'com.newrelic.labs'
     attributes 'Implementation-Version': project.parent.ext.implementationVersion
-    attributes 'Agent-Class': 'com.newrelic.instrumentation.labs.appnaming.AppNamingPremain'
+    // Note: This is an instrumentation module, not an extension - no Agent-Class needed
   }
 }
 

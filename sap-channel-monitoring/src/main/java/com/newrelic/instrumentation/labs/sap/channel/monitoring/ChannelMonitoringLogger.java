@@ -29,6 +29,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 	private static ChannelMonitoringConfig currentChannelConfig = null;
 
 	private static ChannelMonitoringLogger INSTANCE = null;
+	private static final Object LOCK = new Object();
 	private static NRLabsHandler channelsHandler;
 	private static NRLabsHandler statesHandler;
 
@@ -57,7 +58,7 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 	}
 
 	public static void init() {
-		synchronized(INSTANCE) {
+		synchronized(LOCK) {
 			if(INSTANCE == null) {
 				INSTANCE = new ChannelMonitoringLogger();
 				ServiceFactory.getConfigService().addIAgentConfigListener(INSTANCE);
