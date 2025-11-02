@@ -224,7 +224,7 @@ public class AuditLogUtils {
             AuditLoggingLogger.init();
         }
         
-        MessageLoggingConfig config = AuditLoggingLogger.getMessageConfig();
+        MessageLoggingConfig config = MessageLoggingLogger.getMessageConfig();
         return config != null && config.isIgnored(messageType);
     }
 
@@ -257,33 +257,33 @@ public class AuditLogUtils {
     }
 
     public static void logMessage(Message message, MessageStatus status, String errorCode, String connName) {
-        MessageLoggingConfig config = AuditLoggingLogger.getMessageConfig();
+        MessageLoggingConfig config = MessageLoggingLogger.getMessageConfig();
         if(config == null || !config.isMessageEnabled()) {
             return;
         }
         
         String formattedMessage = formatMessageLog(message, status, errorCode, connName);
-        AuditLoggingLogger.logToMessageLog(formattedMessage);
+        MessageLoggingLogger.logToMessageLog(formattedMessage);
     }
 
     public static void logMessage(Message message, ProcessingState state) {
-        MessageLoggingConfig config = AuditLoggingLogger.getMessageConfig();
+        MessageLoggingConfig config = MessageLoggingLogger.getMessageConfig();
         if(config == null || !config.isMessageEnabled()) {
             return;
         }
         
         String formattedMessage = formatProcessingStateMessage(message, state);
-        AuditLoggingLogger.logToMessageLog(formattedMessage);
+        MessageLoggingLogger.logToMessageLog(formattedMessage);
     }
 
     public static void logQueueMessage(MessageKey msgKey, String messageStatus, String errorCode, 
                                      int retries, int timesFailed, int messageSize, String connectionName) {
-        MessageLoggingConfig config = AuditLoggingLogger.getMessageConfig();
+        MessageLoggingConfig config = MessageLoggingLogger.getMessageConfig();
         if(config == null || !config.isMessageEnabled()) {
             return;
         }
         
         String formattedMessage = formatQueueMessage(msgKey, messageStatus, errorCode, retries, timesFailed, messageSize, connectionName);
-        AuditLoggingLogger.logToMessageLog(formattedMessage);
+        MessageLoggingLogger.logToMessageLog(formattedMessage);
     }
 }

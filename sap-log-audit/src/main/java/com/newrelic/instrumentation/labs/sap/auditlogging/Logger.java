@@ -179,7 +179,7 @@ public class Logger implements Runnable, AgentConfigListener {
         }
         if(msgKey != null && data != null) {
             String logMsg = formatFinalMessageStatusData(msgKey, data, timesFailed, simulated);
-            AuditLoggingLogger.logToMessageLog(logMsg + ", Logging Type: FinalMessageStatusData");
+                MessageLoggingLogger.logToMessageLog(logMsg + ", Logging Type: FinalMessageStatusData");
         }
     }
 
