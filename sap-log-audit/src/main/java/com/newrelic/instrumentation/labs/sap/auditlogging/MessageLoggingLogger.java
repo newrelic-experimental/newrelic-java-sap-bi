@@ -75,8 +75,7 @@ public class MessageLoggingLogger implements AgentConfigListener {
     }
 
     private static MessageLoggingConfig getConfig(Config agentConfig) {
-        // Use ConfigurationMigration to handle backward compatibility
-        return ConfigurationMigration.createMessageConfigWithBackwardCompatibility(agentConfig);
+        return new MessageLoggingConfig(agentConfig);
     }
 
     @Override

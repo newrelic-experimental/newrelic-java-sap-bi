@@ -30,6 +30,41 @@ public class MessageLoggingConfig {
         messageLogFile = messageFile.getAbsolutePath();
     }
 
+    public MessageLoggingConfig(com.newrelic.api.agent.Config agentConfig) {
+        this(); // Set defaults first
+        
+        // Read configuration values directly using existing SAP config structure
+        Object rolloverMinutes = agentConfig.getValue("SAP.messagelog.log_file_interval");
+        if(rolloverMinutes != null) {
+            setMessageRolloverMinutes(Integer.parseInt(rolloverMinutes.toString()));
+        }
+
+        Object maxFiles = agentConfig.getValue("SAP.messagelog.log_file_count");
+        if(maxFiles != null) {
+            setMaxMessageLogFiles(Integer.parseInt(maxFiles.toString()));
+        }
+
+        Object rolloverSize = agentConfig.getValue("SAP.messagelog.log_size_limit");
+        if(rolloverSize != null && !rolloverSize.toString().isEmpty()) {
+            setMessageRolloverSize(rolloverSize.toString());
+        }
+
+        Object filename = agentConfig.getValue("SAP.messagelog.log_file_name");
+        if(filename != null && !filename.toString().isEmpty()) {
+            setMessageLogFile(filename.toString());
+        }
+
+        Object enabled = agentConfig.getValue("SAP.messagelog.enabled");
+        if(enabled != null) {
+            setMessageEnabled(Boolean.parseBoolean(enabled.toString()));
+        }
+
+        Object ignores = agentConfig.getValue("SAP.messagelog.ignores");
+        if(ignores != null && !ignores.toString().isEmpty()) {
+            setMessageIgnoresFromString(ignores.toString());
+        }
+    }
+
     public String getMessageLogFile() {
         return messageLogFile;
     }

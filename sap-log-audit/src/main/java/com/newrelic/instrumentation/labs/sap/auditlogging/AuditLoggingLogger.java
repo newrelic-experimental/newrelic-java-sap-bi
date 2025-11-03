@@ -13,7 +13,6 @@ import com.newrelic.api.agent.NewRelic;
 
 /**
  * Controller for SAP Audit Logging only
- * Message logging is handled by MessageAuditLoggingLogger
  * Based on the modern pattern from ChannelMonitoringLogger
  * 
  * @author gsidhwani
@@ -71,10 +70,6 @@ public class AuditLoggingLogger implements AgentConfigListener {
         
         if(currentAuditConfig == null) {
             Config agentConfig = NewRelic.getAgent().getConfig();
-            
-            // Log migration recommendations on first initialization
-            ConfigurationMigration.logMigrationRecommendations(agentConfig);
-            
             currentAuditConfig = getAuditConfig(agentConfig);
         }
 
@@ -179,8 +174,7 @@ public class AuditLoggingLogger implements AgentConfigListener {
     }
 
     public static AuditLoggingConfig getAuditConfig(Config agentConfig) {
-        // Use migration utility for backward compatibility
-        return ConfigurationMigration.createAuditConfigWithBackwardCompatibility(agentConfig);
+        return new AuditLoggingConfig(agentConfig);
     }
 
     @Override

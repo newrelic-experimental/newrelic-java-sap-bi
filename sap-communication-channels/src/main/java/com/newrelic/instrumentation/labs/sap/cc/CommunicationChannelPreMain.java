@@ -27,39 +27,7 @@ public class CommunicationChannelPreMain {
 		
 		if(CommunicationChannelLogger.initialized) return;
 		
-//		try {
-//			File nrDir = ConfigFileHelper.getNewRelicDirectory();
-//			File extensions = new File(nrDir,"extensions");
-//			Class<?> clazz = null;
-//			if(extensions != null && extensions.exists()) {
-//				File nrLabsLogging = new File(extensions,"LabsCustomLog4j-1.0.0.jar");
-//				if(nrLabsLogging != null && nrLabsLogging.exists()) {
-//					URLClassLoader cl = new URLClassLoader(new URL[] {nrLabsLogging.toURI().toURL()},CommunicationChannelPreMain.class.getClassLoader());
-//					clazz = Class.forName("com.newrelic.labs.log4j.LogManager",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.Level",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.LoggerContext",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.Configurator",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.builder.api.AppenderComponentBuilder",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.builder.api.ComponentBuilder",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.builder.api.ConfigurationBuilder",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.builder.api.ConfigurationBuilderFactory",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.builder.api.LayoutComponentBuilder",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.builder.impl.BuiltConfiguration",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.spi.ExtendedLogger",true,cl);
-//					Class.forName("com.newrelic.labs.log4j.core.config.Configuration",true,cl);
-//
-//				}
-//			}
-//			
-//			if(clazz == null) {
-//				NewRelic.getAgent().getLogger().log(Level.FINE, "Could not initialize Communcation Channel Logger because did not find Labs logging classes");
-//				return;
-//			}
-			
-			CommunicationChannelLogger.init();
-//		} catch (Exception e) {
-//			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to initialize Communication Channel logging due to {0}", e.getClass().getSimpleName());
-//		}
+		CommunicationChannelLogger.init();
 	}
 
 	private static boolean isSAP() {

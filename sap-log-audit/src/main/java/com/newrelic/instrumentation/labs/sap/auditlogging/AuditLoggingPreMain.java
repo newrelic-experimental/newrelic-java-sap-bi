@@ -1,6 +1,7 @@
 package com.newrelic.instrumentation.labs.sap.auditlogging;
 
 import java.lang.instrument.Instrumentation;
+import java.util.logging.Level;
 
 import com.newrelic.api.agent.NewRelic;
 
@@ -12,6 +13,12 @@ import com.newrelic.api.agent.NewRelic;
  * @author gsidhwani
  */
 public class AuditLoggingPreMain {
+    
+    // SAP system property checks
+    private static final String SAP_SYSTEM_NAME = "SAPSYSTEMNAME";
+    private static final String SAP_MYNAME = "SAPMYNAME";
+    private static final String SAPVERSION = "SAPJStartVersion";
+    private static final String SAPPRODUCT = "SAP";
 
     /**
      * Called by the JVM when the agent is loaded
@@ -19,7 +26,14 @@ public class AuditLoggingPreMain {
      * @param inst Instrumentation instance (unused for logging)
      */
     public static void premain(String agentArgs, Instrumentation inst) {
-        NewRelic.getAgent().getLogger().log(java.util.logging.Level.INFO, 
+        // Check if this is running in an SAP instance
+        if (!isSAP()) {
+            NewRelic.getAgent().getLogger().log(Level.FINE, 
+                "Skipping SAP Audit Logging, application does not appear to be SAP");
+            return;
+        }
+        
+        NewRelic.getAgent().getLogger().log(Level.INFO, 
             "SAP Audit Logging PreMain: Starting unified SAP logging infrastructure initialization...");
         
         // Initialize Audit Logging Controller
@@ -77,5 +91,25 @@ public class AuditLoggingPreMain {
      */
     public static void agentmain(String agentArgs, Instrumentation inst) {
         premain(agentArgs, inst);
+    }
+    
+    /**
+     * Check if this is running in an SAP instance by looking for SAP system properties
+     * @return true if SAP system properties are found, false otherwise
+     */
+    private static boolean isSAP() {
+        String p = System.getProperty(SAPPRODUCT);
+        if (p != null) return true;
+        
+        p = System.getProperty(SAP_MYNAME);
+        if (p != null) return true;
+
+        p = System.getProperty(SAPVERSION);
+        if (p != null) return true;
+
+        p = System.getProperty(SAP_SYSTEM_NAME);
+        if (p != null) return true;
+
+        return false;
     }
 }

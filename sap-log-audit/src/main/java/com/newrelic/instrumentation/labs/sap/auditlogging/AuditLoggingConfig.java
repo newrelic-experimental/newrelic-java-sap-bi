@@ -30,6 +30,41 @@ public class AuditLoggingConfig {
         auditLogFile = auditFile.getAbsolutePath();
     }
 
+    public AuditLoggingConfig(com.newrelic.api.agent.Config agentConfig) {
+        this(); // Set defaults first
+        
+        // Read configuration values directly using existing SAP config structure
+        Object rolloverMinutes = agentConfig.getValue("SAP.auditlog.log_file_interval");
+        if(rolloverMinutes != null) {
+            setAuditRolloverMinutes(Integer.parseInt(rolloverMinutes.toString()));
+        }
+
+        Object maxFiles = agentConfig.getValue("SAP.auditlog.log_file_count");
+        if(maxFiles != null) {
+            setMaxAuditLogFiles(Integer.parseInt(maxFiles.toString()));
+        }
+
+        Object rolloverSize = agentConfig.getValue("SAP.auditlog.log_size_limit");
+        if(rolloverSize != null && !rolloverSize.toString().isEmpty()) {
+            setAuditRolloverSize(rolloverSize.toString());
+        }
+
+        Object filename = agentConfig.getValue("SAP.auditlog.log_file_name");
+        if(filename != null && !filename.toString().isEmpty()) {
+            setAuditLogFile(filename.toString());
+        }
+
+        Object enabled = agentConfig.getValue("SAP.auditlog.enabled");
+        if(enabled != null) {
+            setAuditEnabled(Boolean.parseBoolean(enabled.toString()));
+        }
+
+        Object ignores = agentConfig.getValue("SAP.auditlog.ignores");
+        if(ignores != null && !ignores.toString().isEmpty()) {
+            setAuditIgnoresFromString(ignores.toString());
+        }
+    }
+
     public String getAuditLogFile() {
         return auditLogFile;
     }
