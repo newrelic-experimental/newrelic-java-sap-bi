@@ -8,7 +8,7 @@ The configuration file contains five different JSON configuration items.  Some o
 The five different types of configurations are: MessageStatus, ErrorCode, Message, TransportableMessage and QueueMessage.  Each of these has a JSON Object associated with it that ends with -Config.
 #### Note ####
 If the value of the item is not defined (null) or empty (zero length string), it will not be written to the log.   
-**Note that a template of saploggingconfig.json is included in this directory.**
+**Note that a template of saploggingconfig.json is included in this directory. https://github.com/newrelic-experimental/newrelic-java-sap-bi/blob/main/Logs/saplogginconfig.json**
   
 ### MessageStatus ###
 status - set to true to write message status to the log for all messages.  Default value is true  
