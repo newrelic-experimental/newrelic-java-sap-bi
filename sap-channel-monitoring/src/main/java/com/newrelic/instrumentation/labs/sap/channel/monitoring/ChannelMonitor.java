@@ -201,7 +201,7 @@ public class ChannelMonitor implements Runnable {
 		}
 		sb.append("],");
 
-		sb.append("Errornous Channels: [");
+		sb.append("Erroneous Channels: [");
 
 		if(errornous != null && !errornous.isEmpty()) {
 			int i = 0;
