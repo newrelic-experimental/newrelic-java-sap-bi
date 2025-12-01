@@ -12,15 +12,12 @@ public class ChannelMonitoringConfig {
 	private String rolloverSize = "100K";
 	private int rolloverMinutes = 0;
 	private boolean enabled = true;
-	private String channelStateLog = null;
 	private int collection_period = 2;
 
 	public ChannelMonitoringConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
 		File message_file = new File(newRelicDir, ChannelMonitoringLogger.log_file_name);
 		channelLog = message_file.getAbsolutePath();	
-		File state_file = new File(newRelicDir, ChannelMonitoringLogger.state_log_name);
-		channelStateLog = state_file.getAbsolutePath();
 	}
 
 	public String getChannelLog() {
@@ -72,14 +69,6 @@ public class ChannelMonitoringConfig {
 		this.collection_period = collection_period;
 	}
 
-	public String getChannelStateLog() {
-		return channelStateLog;
-	}
-
-	public void setChannelStateLog(String chanelStateLog) {
-		this.channelStateLog = chanelStateLog;
-	}
-
 	@Override
 	public boolean equals(Object obj) {
 		if(obj == null) return false;
@@ -98,7 +87,6 @@ public class ChannelMonitoringConfig {
 		attributes.put("RollOverSize", rolloverSize);
 		attributes.put("RollOverMinutes", rolloverMinutes);
 		attributes.put("ConfigurationType", "MessageLog");
-		attributes.put("ChannelStateFileName", channelStateLog);
 		attributes.put("Enabled", enabled);
 		attributes.put("CollectionPeriod", collection_period);
 		

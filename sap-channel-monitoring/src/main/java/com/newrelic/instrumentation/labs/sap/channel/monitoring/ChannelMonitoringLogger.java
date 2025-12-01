@@ -15,23 +15,19 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 
 	public static boolean initialized = false;
 	private static Logger CHANNELSLOGGER;
-	private static Logger STATELOGGER;
 	protected static final String CHANNELLOGFILENAME = "SAP.channelmonitoring.log_file_name";
 	protected static final String CHANNELLOGROLLOVERINTERVAL = "SAP.channelmonitoring.log_file_interval";
-	protected static final String CHANNELLOGIGNORES = "SAP.channelmonitoring.ignores";
 	protected static final String CHANNELLOGROLLOVERSIZE = "SAP.channelmonitoring.log_size_limit";
 	protected static final String CHANNELLOGROLLOVERSIZE2 = "SAP.channelmonitoring.log_file_size";
 	protected static final String CHANNELLOGMAXFILES = "SAP.channelmonitoring.log_file_count";
 	protected static final String CHANNELSLOGENABLED = "SAP.channelmonitoring.enabled";
 	protected static final String CHANNELSLOGCOLLECTIONPERIOD = "SAP.channelmonitoring.collection_period";
 	public static final String log_file_name = "channels.log";
-	public static final String state_log_name = "channel-state.log";
 	private static ChannelMonitoringConfig currentChannelConfig = null;
 
 	private static ChannelMonitoringLogger INSTANCE = null;
 	private static final Object LOCK = new Object();
 	private static NRLabsHandler channelsHandler;
-	private static NRLabsHandler statesHandler;
 
 	private ChannelMonitoringLogger() {
 
@@ -48,13 +44,6 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 			init();
 		}
 		CHANNELSLOGGER.log(Level.INFO, message);
-	}
-
-	protected static void logToStateLog(String message) {
-		if(!initialized) {
-			init();
-		}
-		STATELOGGER.log(Level.INFO, message);
 	}
 
 	public static void init() {
@@ -115,16 +104,6 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 			} else {
 				NewRelic.getAgent().getLogger().log(Level.FINE, "Failed to created directories needed for channel monitoring log files: {0})", channelMonitorFileName);			}
 		}
-		String stateLogFileName = currentChannelConfig.getChannelStateLog();
-		file = new File(stateLogFileName);
-		parent = file.getParentFile();
-		if(!parent.exists()) {
-			boolean result = parent.mkdirs();
-			if(result) {
-				NewRelic.getAgent().getLogger().log(Level.FINE, "Created directories needed for channel monitoring log files: {0})", channelMonitorFileName);
-			} else {
-				NewRelic.getAgent().getLogger().log(Level.FINE, "Failed to created directories needed for channel monitoring log files: {0})", channelMonitorFileName);			}
-		}
 
 		int maxFiles = currentChannelConfig.getMaxLogFiles();
 
@@ -159,37 +138,6 @@ public class ChannelMonitoringLogger implements AgentConfigListener  {
 
 		if(CHANNELSLOGGER != null && channelsHandler != null) {
 			CHANNELSLOGGER.addHandler(channelsHandler);
-		}
-
-		if(statesHandler != null) {
-			statesHandler.flush();
-			statesHandler.close();
-			if(STATELOGGER != null) {
-				STATELOGGER.removeHandler(statesHandler);
-			}
-			statesHandler = null;
-		}
-
-		try {
-			statesHandler = new NRLabsHandler(state_log_name, rolloverMinutes, size, maxFiles);
-			statesHandler.setFormatter(new NRLabsFormatter());
-		} catch(SecurityException e) {
-			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to create channel state log file at {0}", state_log_name);
-		} catch (IOException e) {
-			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to create channel state log file at {0}", state_log_name);
-		}
-
-		if(STATELOGGER == null) {
-			try {
-				NewRelic.getAgent().getLogger().log(Level.FINE, "Building Log File, name: {0}, size: {1}, maxfiles: {2}", stateLogFileName, size, maxFiles);
-				STATELOGGER = Logger.getLogger("ChannelStateLog");
-			} catch (SecurityException e) {
-				NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to create channel state log file at {0}", channelMonitorFileName);
-			} 
-		}
-
-		if(STATELOGGER != null && statesHandler != null) {
-			STATELOGGER.addHandler(statesHandler);
 		}
 
 		initialized = true;

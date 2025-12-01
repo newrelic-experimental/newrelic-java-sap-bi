@@ -68,7 +68,7 @@ public class AttributeProcessor {
 
 	protected static void processAttributes(Map<MessageKey, Map<String,String>> attributeMappings ) {
 		long startTime = System.nanoTime();
-
+		AdapterMonitorLogger.logMessage(Level.FINEST, "Processing attributes for " + attributeMappings.size() + " messages");
 		List<MessageKey> msgKeys = new ArrayList<MessageKey>();
 		msgKeys.addAll(attributeMappings.keySet());
 		String[] msgKeysArray = new String[msgKeys.size()];
@@ -104,7 +104,9 @@ public class AttributeProcessor {
 				Map<String,String> attributeMapping = attributeMappings.get(msgKey);
 				if(attributeMapping != null && !attributeMapping.isEmpty()) {
 					Map<String,String> attributesToReport = findConfiguredAttributes(attributeMapping);
-					if(attributesToReport == null || attributesToReport.isEmpty()) {
+					AdapterMonitorLogger.logMessage(Level.FINEST, "Found " + attributesToReport.size() + " attributes for " + msgKey.getMessageId());
+
+					if(attributesToReport.isEmpty()) {
 						continue;
 					}
 					

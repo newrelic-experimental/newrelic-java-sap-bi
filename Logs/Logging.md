@@ -83,6 +83,21 @@ The message fields that are written to the message log file can be configured by
 ### Disabling
 The logs in this component can be disabled in either of two ways.   Since this set of instrumentation is only related to this logging, you can disable all of the logs by removing sap-log-audit.jar from the extensions directory.   The other way is to include the appropriate enabled setting in newrelic.yml with a value of false.  Note that removing sap-log-audit.jar also affects the Audit Log Component as well.
 
+## Channel Monitor Log Component ##
+This component monitors and logs the current status of the channels in use. It queries for channel statuses at a configurable rate and reports the state to a log.   
+### Reports  ###
+Reports a comma separated list of channels in each of the following states:  Inactive, Erroneous, With Errors, Stopped, and Active.    
+### Settings ###
+Come under the setting channelmonitoring     
+
+| Setting | Description | Default Value |
+| ------- | ----------- | ------------- |
+| enabled | Boolean value - whether to generate the detailed communication channel log or not | true |
+| log_file_name | String - full path that is used to create and write that log file | channels.log in the New Relic Agent directory |
+| log_file_interval | Integer - number of minutes between rolling the log file | 60 minutes (1 hour) |
+| log_size_limit | String - Size indentifer decrribed above | 100 KB |
+| log_file_count | Integer - Number of archive log files to keep | 3 |
+
 ## Communication Channels Log Component ##
 This component will produce two different logs regarding information on the communication channels.  The first log will report detailed channel details whenever the timestamp on the process data is between the last collection and the current time.  We will refer to this log as the detailed log and only the current entries are written.  The collection process will run every 2 mintues.   The second log is a summary log and will report summary entries every 5 minutes for every channel.  
 ### Reports
