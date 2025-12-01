@@ -11,7 +11,6 @@ import com.newrelic.api.agent.TracedMethod;
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
 import com.newrelic.instrumentation.labs.sap.adapters.ejb.AdaptersUtils;
-import com.newrelic.instrumentation.labs.sap.adapters.ejb.DataUtils;
 import com.sap.aii.af.lib.mp.module.ModuleData;
 import com.sap.aii.af.service.cpa.CPAException;
 import com.sap.aii.af.service.cpa.CPAObjectNotFoundException;
@@ -27,14 +26,12 @@ public abstract class ModuleProcessorBean {
 
 	@Trace(dispatcher=true)
 	public ModuleData process(String channelId, ModuleData objectData) {
-		DataUtils.addData(objectData);
 		TracedMethod traced = NewRelic.getAgent().getTracedMethod();
 		Channel channel = null;
 		String direction = null;
 		String adapterType = null;
 		HashMap<String, Object> span_attributes = new HashMap<String, Object>();
 		AdaptersUtils.addValue(span_attributes,"ChannelId", channelId);
-		DataUtils.addAttributes(objectData, span_attributes);
 		traced.addCustomAttributes(span_attributes);
 		HashMap<String, Object> eventAttributes = new HashMap<String, Object>();
 		try {

@@ -19,8 +19,8 @@ import com.sap.engine.interfaces.messaging.spi.transport.Endpoint;
  */
 public class AdaptersUtils {
 
-	private static EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
-	private static Environment agentEnvironment = environmentService.getEnvironment();
+	private static final EnvironmentService environmentService = ServiceFactory.getEnvironmentService();
+	private static final Environment agentEnvironment = environmentService.getEnvironment();
 
 	public static void addInstanceName(Map<String, Object> attributes) {
 		AgentIdentity agentIdentity = agentEnvironment.getAgentIdentity();
@@ -92,13 +92,7 @@ public class AdaptersUtils {
 			addEndpoint(attributes, tMessage.getEndpoint());
 			addValue(attributes, "SequenceNumber",tMessage.getSequenceNumber());
 		}
-//		if(principalObject instanceof XIMessage) {
-//			XIMessage message = (XIMessage)principalObject;
-//			addValue(attributes, "Protocol", message.getProtocol());
-//			addValue(attributes, "InterfaceName", message.getInterfaceName());
-//			
-//		}
-		
+
 		return attributes.isEmpty() ? null : attributes;
 	}
 }
