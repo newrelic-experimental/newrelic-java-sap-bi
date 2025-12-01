@@ -16,14 +16,12 @@ public class AdapterMessageLogger implements AgentConfigListener {
 
 	public static boolean initialized = false;
 	private static Logger LOGGER;
-	protected static final String ADAPTERMSGLOGFILENAME = "SAP.adaptermessagelog.log_file_name";
-	protected static final String ADAPTERMSGLOGROLLOVERINTERVAL = "SAP.adaptermessagelog.log_file_interval";
-	protected static final String ADAPTERMSGLOGROLLOVERSIZE = "SAP.adaptermessagelog.log_size_limit";
-	protected static final String ADAPTERMSGLOGROLLOVERSIZE2 = "SAP.adaptermessagelog.log_file_size";
-	protected static final String ADAPTERMSGLOGMAXFILES = "SAP.adaptermessagelog.log_file_count";
-	protected static final String ADAPTERMSGLOGMENABLED = "SAP.adaptermessagelog.enabled";
-	protected static final String ADAPTERMSGLOGFREQUENCY = "SAP.adaptermessagelog.frequency";
-	protected static final String ADAPTERMSGLOGDELAY = "SAP.adaptermessagelog.delay";
+	protected static final String ADAPTERMSG_LOG_FILENAME = "SAP.adaptermessagelog.log_file_name";
+	protected static final String ADAPTERMSG_LOG_ROLLOVER_INTERVAL = "SAP.adaptermessagelog.log_file_interval";
+	protected static final String ADAPTERMSG_LOG_ROLLOVER_SIZE = "SAP.adaptermessagelog.log_size_limit";
+	protected static final String ADAPTERMSG_LOG_ROLLOVER_SIZE2 = "SAP.adaptermessagelog.log_file_size";
+	protected static final String ADAPTERMSG_LOG_MAX_FILES = "SAP.adaptermessagelog.log_file_count";
+	protected static final String ADAPTERMSG_LOG_ENABLED = "SAP.adaptermessagelog.enabled";
 	protected static final String ADAPTER_MONITOR_LOGGING = "SAP.adaptermonitor.monitorlogging.enabled";
 	protected static final String log_file_name = "adapter_message.log";
 	private static MessageLoggingConfig currentConfig = null;
@@ -85,34 +83,7 @@ public class AdapterMessageLogger implements AgentConfigListener {
 		}
 
 		String rolloverSize = currentConfig.getRolloverSize();
-		StringBuffer sb = new StringBuffer();
-		int length = rolloverSize.length();
-		for(int i = 0; i < length; i++) {
-			char c = rolloverSize.charAt(i);
-			if(Character.isDigit(c)) {
-				sb.append(c);
-			}
-		}
-		
-		long size = Long.parseLong(sb.toString());
-		char end = rolloverSize.charAt(length-1);
-		switch (end) {
-		case 'K':
-			size *= 1024L;
-			break;
-		case 'M':
-			size *= 1024L*1024L;
-			break;
-		case 'G':
-			size *= 1024L*1024L*1024L;
-			break;
-		}
-		
-		// disallow less than 10K
-		if(size < 10 * 1024L) {
-			size =  10 * 1024L;
-		}
-		
+		long size = Utils.getSize(rolloverSize);
 		String adapterLogFileName = currentConfig.getAdapterLog();
 		// Ensure that the parent directory exists and if not attempt to create it
 		File file = new File(adapterLogFileName);
@@ -140,13 +111,11 @@ public class AdapterMessageLogger implements AgentConfigListener {
 		try {
 			handler = new NRLabsHandler(adapterLogFileName, rolloverMinutes, size, maxFiles);
 			handler.setFormatter(new NRLabsFormatter());
-		} catch (SecurityException e) {
-			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to handler for {0}", adapterLogFileName);
-		} catch (IOException e) {
+		} catch (SecurityException | IOException e) {
 			NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to handler for {0}", adapterLogFileName);
 		}
 
-		if (LOGGER == null) {
+        if (LOGGER == null) {
 			try {
 				NewRelic.getAgent().getLogger().log(Level.FINE, "Building Adapter Message Log File, name: {0}, size: {1}, maxfiles: {2}", adapterLogFileName, size, maxFiles);
 				LOGGER = Logger.getLogger("AdapterMessageLog");
@@ -164,45 +133,35 @@ public class AdapterMessageLogger implements AgentConfigListener {
 	
 	public static MessageLoggingConfig getConfig(Config agentConfig) {
 		MessageLoggingConfig messageLoggingConfig = new MessageLoggingConfig();
-		Integer rolloverMinutes = agentConfig.getValue(ADAPTERMSGLOGROLLOVERINTERVAL);
+		Integer rolloverMinutes = agentConfig.getValue(ADAPTERMSG_LOG_ROLLOVER_INTERVAL);
 
 		if(rolloverMinutes != null) {
 			messageLoggingConfig.setRolloverMinutes(rolloverMinutes);
 		}
 
-		Integer maxFile = agentConfig.getValue(ADAPTERMSGLOGMAXFILES);
+		Integer maxFile = agentConfig.getValue(ADAPTERMSG_LOG_MAX_FILES);
 		if(maxFile != null) {
 			messageLoggingConfig.setMaxLogFiles(maxFile);
 		}
 
-		String rolloverSize = agentConfig.getValue(ADAPTERMSGLOGROLLOVERSIZE);
+		String rolloverSize = agentConfig.getValue(ADAPTERMSG_LOG_ROLLOVER_SIZE);
 		if(rolloverSize != null && !rolloverSize.isEmpty()) {
 			messageLoggingConfig.setRolloverSize(rolloverSize);
 		} else {
 
-			rolloverSize = agentConfig.getValue(ADAPTERMSGLOGROLLOVERSIZE2);
+			rolloverSize = agentConfig.getValue(ADAPTERMSG_LOG_ROLLOVER_SIZE2);
 			if(rolloverSize != null && !rolloverSize.isEmpty()) {
 				messageLoggingConfig.setRolloverSize(rolloverSize);
 			}
 		}
 
-		String filename = agentConfig.getValue(ADAPTERMSGLOGFILENAME);
+		String filename = agentConfig.getValue(ADAPTERMSG_LOG_FILENAME);
 		if(filename != null && !filename.isEmpty()) {
 			messageLoggingConfig.setAdapterLog(filename);
 		}
 
-		boolean enabled = agentConfig.getValue(ADAPTERMSGLOGMENABLED, Boolean.TRUE);
+		boolean enabled = agentConfig.getValue(ADAPTERMSG_LOG_ENABLED, Boolean.TRUE);
 		messageLoggingConfig.setEnabled(enabled);
-		
-		Integer freq = agentConfig.getValue(ADAPTERMSGLOGFREQUENCY);
-		if(freq != null) {
-			messageLoggingConfig.setFrequency(freq);
-		}
-		
-		Integer delay = agentConfig.getValue(ADAPTERMSGLOGDELAY);
-		if(delay != null) {
-			messageLoggingConfig.setDelay(delay);
-		}
 		
 		Boolean monitorLggging = agentConfig.getValue(ADAPTER_MONITOR_LOGGING);
 		if(monitorLggging != null) {

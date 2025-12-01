@@ -30,9 +30,9 @@ public class AttributeChecker implements Runnable {
 	
 	private static final int MAX = 100000;
 	private static BlockingQueue<DataHolder> queue = new LinkedBlockingQueue<DataHolder>(MAX);
-	private static int NUMBER_OF_CONSUMERS = 5;
+	private static final int NUMBER_OF_CONSUMERS = 5;
 	private static final long DELAY = (NUMBER_OF_CONSUMERS+1) * 60000L;
-	private int index;
+	private final int index;
 	
 	public static void addDataToQueue(DataHolder holder) {
 		if(queue.remainingCapacity() < 100) {
@@ -41,6 +41,7 @@ public class AttributeChecker implements Runnable {
 			temp.clear();
 			AdapterMonitorLogger.logMessage("Removed " + n + " Dataholder entries due to capacity constraints");
 		}
+		AdapterMonitorLogger.logMessage(Level.FINER,"Added Dataholder of type " + holder.getClass().getSimpleName() + " to queue");
 		boolean added = queue.add(holder);
 		if(!added) {
 			AdapterMonitorLogger.logMessage("Failed to add Dataholder to queue: " + holder);
@@ -80,6 +81,7 @@ public class AttributeChecker implements Runnable {
 			try {
 				Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
 				int toProcess = queue.drainTo(dataHoldersToProcess, 50);
+				AdapterMonitorLogger.logMessage(Level.FINER, "Drained " +  toProcess + " dataholders entries from the queue");
 				
 				try {
 					if(toProcess > 0) {

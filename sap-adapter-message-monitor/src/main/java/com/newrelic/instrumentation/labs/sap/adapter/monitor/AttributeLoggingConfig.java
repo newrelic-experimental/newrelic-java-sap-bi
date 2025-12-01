@@ -1,30 +1,30 @@
 package com.newrelic.instrumentation.labs.sap.adapter.monitor;
 
+import com.newrelic.agent.config.ConfigFileHelper;
+
 import java.io.File;
 import java.util.HashMap;
 
-import com.newrelic.agent.config.ConfigFileHelper;
+public class AttributeLoggingConfig {
 
-public class MessageLoggingConfig {
-
-	private String adapterLog = null;
+	private String attributeLog = null;
 	private int maxLogFiles = 3;
 	private String rolloverSize = "100K";
 	private int rolloverMinutes = 0;
 	private boolean enabled = true;
 
-	public MessageLoggingConfig() {
+	public AttributeLoggingConfig() {
 		File newRelicDir = ConfigFileHelper.getNewRelicDirectory();
-		File log_file = new File(newRelicDir, AdapterMessageLogger.log_file_name);
-		adapterLog = log_file.getAbsolutePath();
+		File log_file = new File(newRelicDir, AttributeMonitorLogger.log_file_name);
+		attributeLog = log_file.getAbsolutePath();
 	}
 	
-	public String getAdapterLog() {
-		return adapterLog;
+	public String getAttributeLog() {
+		return attributeLog;
 	}
 
-	public void setAdapterLog(String adapterLog) {
-		this.adapterLog = adapterLog;
+	public void setAttributeLog(String attributeLog) {
+		this.attributeLog = attributeLog;
 	}
 
 	public int getMaxLogFiles() {
@@ -59,20 +59,21 @@ public class MessageLoggingConfig {
 		this.enabled = enabled;
 	}
 	
+
 	@Override
 	public boolean equals(Object obj) {
 		if(obj == null) return false;
 		
-		if(!(obj instanceof MessageLoggingConfig)) return false;
+		if(!(obj instanceof AttributeLoggingConfig)) return false;
 		
-		MessageLoggingConfig newConfig = (MessageLoggingConfig)obj;
+		AttributeLoggingConfig newConfig = (AttributeLoggingConfig)obj;
 				
-		return newConfig.enabled == enabled && newConfig.adapterLog.equals(adapterLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize); 
+		return newConfig.enabled == enabled && newConfig.attributeLog.equals(attributeLog) && newConfig.maxLogFiles == maxLogFiles && newConfig.rolloverMinutes == rolloverMinutes && newConfig.rolloverSize.equals(rolloverSize);
 	}
 	
 	public HashMap<String, Object> getCurrentSettings() {
 		HashMap<String, Object> attributes = new HashMap<>();
-		attributes.put("AdapterFileName", adapterLog);
+		attributes.put("AttributesFileName", attributeLog);
 		attributes.put("MaxMessageLogFiles", maxLogFiles);
 		attributes.put("RollOverSize", rolloverSize);
 		attributes.put("RollOverMinutes", rolloverMinutes);
@@ -81,4 +82,5 @@ public class MessageLoggingConfig {
 		
 		return attributes;
 	}
+
 }
