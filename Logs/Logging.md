@@ -59,6 +59,21 @@ This component will replicate the entries that SAP collects in the Message Log.
 ### Message Fields Configuration ###
 The message fields that are written to the message log file can be configured by placing a JSON file named saploggingconfig.json in the New Relic Java Agent directory.   If the file is not present and message logging is enabled then a default set of fields is reported.  For more information on configuring the fields to collect see    
 
+## Channel Monitor Log Component ##
+This component monitors and logs the current status of the channels in use. It queries for channel statuses at a configurable rate and reports the state to a log.   
+### Reports  ###
+Reports a comma separated list of channels in each of the following states:  Inactive, Erroneous, With Errors, Stopped, and Active.    
+### Settings ###
+Come under the setting channelmonitoring     
+
+| Setting | Description | Default Value |
+| ------- | ----------- | ------------- |
+| enabled | Boolean value - whether to generate the detailed communication channel log or not | true |
+| log_file_name | String - full path that is used to create and write that log file | channels.log in the New Relic Agent directory |
+| log_file_interval | Integer - number of minutes between rolling the log file | 60 minutes (1 hour) |
+| log_size_limit | String - Size indentifer decrribed above | 100 KB |
+| log_file_count | Integer - Number of archive log files to keep | 3 |
+
 ## Communication Channels Log Component ##
 This component will produce two different logs regarding information on the communication channels.  The first log will report detailed channel details whenever the timestamp on the process data is between the last collection and the current time.  We will refer to this log as the detailed log and only the current entries are written.  The collection process will run every 2 mintues.   The second log is a summary log and will report summary entries every 5 minutes for every channel.  
 
