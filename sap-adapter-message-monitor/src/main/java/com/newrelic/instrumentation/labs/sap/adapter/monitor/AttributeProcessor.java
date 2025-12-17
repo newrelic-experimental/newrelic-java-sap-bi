@@ -68,15 +68,44 @@ public class AttributeProcessor {
 
 	protected static void processAttributes(Map<MessageKey, Map<String,String>> attributeMappings ) {
 		long startTime = System.nanoTime();
-		AdapterMonitorLogger.logMessage(Level.FINEST, "Processing attributes for " + attributeMappings.size() + " messages");
+
 		List<MessageKey> msgKeys = new ArrayList<MessageKey>();
 		msgKeys.addAll(attributeMappings.keySet());
+
+		// Remove null keys to prevent NullPointerException
+		msgKeys.removeIf(key -> key == null);
+
+		if(msgKeys.isEmpty()) {
+			NewRelic.getAgent().getLogger().log(Level.FINE, "No valid message keys to process");
+			return;
+		}
+
 		String[] msgKeysArray = new String[msgKeys.size()];
 		int index = 0;
-		
+
 		for(MessageKey key : msgKeys) {
-			msgKeysArray[index] = key.getMessageId();
-			index++;
+			// Double-check for null before calling getMessageId()
+			if(key != null) {
+				String messageId = key.getMessageId();
+				if(messageId != null && !messageId.isEmpty()) {
+					msgKeysArray[index] = messageId;
+					index++;
+				} else {
+					NewRelic.getAgent().getLogger().log(Level.FINE, "MessageKey has null or empty messageId, skipping");
+				}
+			}
+		}
+
+		// Adjust array size if some keys were skipped
+		if(index < msgKeysArray.length) {
+			String[] adjustedArray = new String[index];
+			System.arraycopy(msgKeysArray, 0, adjustedArray, 0, index);
+			msgKeysArray = adjustedArray;
+		}
+
+		if(msgKeysArray.length == 0) {
+			NewRelic.getAgent().getLogger().log(Level.FINE, "No valid message IDs to process");
+			return;
 		}
 
 		try {
@@ -104,9 +133,7 @@ public class AttributeProcessor {
 				Map<String,String> attributeMapping = attributeMappings.get(msgKey);
 				if(attributeMapping != null && !attributeMapping.isEmpty()) {
 					Map<String,String> attributesToReport = findConfiguredAttributes(attributeMapping);
-					AdapterMonitorLogger.logMessage(Level.FINEST, "Found " + attributesToReport.size() + " attributes for " + msgKey.getMessageId());
-
-					if(attributesToReport.isEmpty()) {
+					if(attributesToReport == null || attributesToReport.isEmpty()) {
 						continue;
 					}
 					
@@ -165,23 +192,38 @@ public class AttributeProcessor {
 
 			XMLPayload document = message.getDocument();
 			try {
-				Document doc = loadXMLFromString(document.getText());
-				Map<String,String> attributes = getAttributesFromXML(doc);
-				if(attributes != null) {
-					result.put(MESSAGE_DOCUMENT, attributes);
-				}
-				Map<String,String> attributes2 = new HashMap<String, String>();
-				
-				for(String attributeName : document.getAttributeNames()) {
-					String value = document.getAttribute(attributeName);
-					if(value != null) {
-						attributes2.put(attributeName, value);
+				// Validate XML content before parsing
+				String xmlText = document != null ? document.getText() : null;
+				if(xmlText != null && !xmlText.trim().isEmpty()) {
+					// Check for valid XML start (not BOM or other prolog issues)
+					String trimmedXml = xmlText.trim();
+					if(trimmedXml.startsWith("<") || trimmedXml.startsWith("<?xml")) {
+						Document doc = loadXMLFromString(xmlText);
+						Map<String,String> attributes = getAttributesFromXML(doc);
+						if(attributes != null) {
+							result.put(MESSAGE_DOCUMENT, attributes);
+						}
+					} else {
+						NewRelic.getAgent().getLogger().log(Level.FINE, "XML content does not start with valid XML declaration, skipping parse");
 					}
+				} else {
+					NewRelic.getAgent().getLogger().log(Level.FINE, "XML payload is null or empty, skipping parse");
 				}
-				result.put(PAYLOAD_ATTRIBUTES, attributes2);
-				
-				
-				
+
+				if(document != null) {
+					Map<String,String> attributes2 = new HashMap<String, String>();
+
+					for(String attributeName : document.getAttributeNames()) {
+						String value = document.getAttribute(attributeName);
+						if(value != null) {
+							attributes2.put(attributeName, value);
+						}
+					}
+					result.put(PAYLOAD_ATTRIBUTES, attributes2);
+				}
+
+
+
 			} catch (Exception e) {
 				NewRelic.getAgent().getLogger().log(Level.FINE, e, "Failed to parse XML");
 			}

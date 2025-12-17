@@ -30,9 +30,9 @@ public class AttributeChecker implements Runnable {
 	
 	private static final int MAX = 100000;
 	private static BlockingQueue<DataHolder> queue = new LinkedBlockingQueue<DataHolder>(MAX);
-	private static final int NUMBER_OF_CONSUMERS = 5;
+	private static int NUMBER_OF_CONSUMERS = 5;
 	private static final long DELAY = (NUMBER_OF_CONSUMERS+1) * 60000L;
-	private final int index;
+	private int index;
 	
 	public static void addDataToQueue(DataHolder holder) {
 		if(queue.remainingCapacity() < 100) {
@@ -41,7 +41,6 @@ public class AttributeChecker implements Runnable {
 			temp.clear();
 			AdapterMonitorLogger.logMessage("Removed " + n + " Dataholder entries due to capacity constraints");
 		}
-		AdapterMonitorLogger.logMessage(Level.FINER,"Added Dataholder of type " + holder.getClass().getSimpleName() + " to queue");
 		boolean added = queue.add(holder);
 		if(!added) {
 			AdapterMonitorLogger.logMessage("Failed to add Dataholder to queue: " + holder);
@@ -81,7 +80,6 @@ public class AttributeChecker implements Runnable {
 			try {
 				Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
 				int toProcess = queue.drainTo(dataHoldersToProcess, 50);
-				AdapterMonitorLogger.logMessage(Level.FINER, "Drained " +  toProcess + " dataholders entries from the queue");
 				
 				try {
 					if(toProcess > 0) {
@@ -188,14 +186,20 @@ public class AttributeChecker implements Runnable {
 						
 					}
 				}
-				if(attributeMappings.containsKey(messageKey)) {
-					Map<String,String> existing = attributeMappings.get(messageKey);
-					if(existing != null) {
-						values.putAll(existing);
-					}					
-					attributeMappings.put(messageKey, values);
+				// Only add to map if messageKey is not null
+				if(messageKey != null) {
+					if(attributeMappings.containsKey(messageKey)) {
+						Map<String,String> existing = attributeMappings.get(messageKey);
+						if(existing != null) {
+							values.putAll(existing);
+						}
+						attributeMappings.put(messageKey, values);
+					} else {
+						attributeMappings.put(messageKey, values);
+					}
 				} else {
-					attributeMappings.put(messageKey, values);
+					NewRelic.getAgent().getLogger().log(Level.FINE, "MessageKey is null for ModuleDataHolder, skipping attribute mapping");
+					NewRelic.recordMetric("SAP/AttributeProcess/NullMessageKey", 1.0f);
 				}
 				long end = System.currentTimeMillis();
 				NewRelic.recordMetric("SAP/AttributeProcess/TimeToProcessKey", end-start);
@@ -223,17 +227,23 @@ public class AttributeChecker implements Runnable {
 					
 					Map<String,String> msgProperties = attributesFromMsg.get(AttributeProcessor.MESSAGE_PROPERTIES);
 					values.putAll(msgProperties);
-					
+
 				}
 
-				if(attributeMappings.containsKey(messageKey)) {
-					Map<String,String> existing = attributeMappings.get(messageKey);
-					if(existing != null) {
-						values.putAll(existing);
-					}					
-					attributeMappings.put(messageKey, values);
+				// Only add to map if messageKey is not null
+				if(messageKey != null) {
+					if(attributeMappings.containsKey(messageKey)) {
+						Map<String,String> existing = attributeMappings.get(messageKey);
+						if(existing != null) {
+							values.putAll(existing);
+						}
+						attributeMappings.put(messageKey, values);
+					} else {
+						attributeMappings.put(messageKey, values);
+					}
 				} else {
-					attributeMappings.put(messageKey, values);
+					NewRelic.getAgent().getLogger().log(Level.FINE, "MessageKey is null for MessageAndContextHolder, skipping attribute mapping");
+					NewRelic.recordMetric("SAP/AttributeProcess/NullMessageKey", 1.0f);
 				}
 				long end = System.currentTimeMillis();
 				NewRelic.recordMetric("SAP/AttributeProcess/TimeToProcessKey", end-start);
