@@ -595,6 +595,14 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 							Object[] params = { id };
 							CompositeData result = (CompositeData) mbs.invoke(inst.getObjectName(), "getThreadInfo",
 									params, new String[] { "long" });
+
+							// Check if result is null before accessing (thread may have terminated)
+							if (result == null) {
+								NewRelic.getAgent().getLogger().log(Level.FINEST,
+									"getThreadInfo returned null for thread ID: " + id + " (thread may have terminated)");
+								continue; // Skip this thread and move to next
+							}
+
 							Long value = (Long) result.get("blockedCount");
 							if (value != null && value > 0) {
 								report = true;
@@ -613,7 +621,7 @@ public class SAPJMXHarvester extends Thread implements HarvestListener, AgentCon
 							putValue(attributes, "Thread ID", result.get("threadId"));
 							putValue(attributes, "Thread Name", result.get("threadName"));
 							String threadState = (String) result.get("threadState");
-							if (threadState.toLowerCase().contains("block")) {
+							if (threadState != null && threadState.toLowerCase().contains("block")) {
 								report = true;
 							}
 							putValue(attributes, "Thread State", result.get("threadState"));
