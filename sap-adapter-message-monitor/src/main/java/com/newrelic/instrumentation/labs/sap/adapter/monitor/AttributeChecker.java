@@ -45,6 +45,9 @@ public class AttributeChecker implements Runnable {
 		if(!added) {
 			AdapterMonitorLogger.logMessage("Failed to add Dataholder to queue: " + holder);
 			NewRelic.recordMetric("/SAP/AttributeProcess/HolderNotAdded", 1.0f);
+		} else {
+			NewRelic.recordMetric("/SAP/AttributeProcess/HolderAdded", 1.0f);
+			AdapterMonitorLogger.logMessage(Level.FINER,"added Dataholder to queue: " + holder);
 		}
 	}
 
@@ -75,11 +78,13 @@ public class AttributeChecker implements Runnable {
 
 	@Override
 	public void run() {
-		
+		AdapterMonitorLogger.logMessage(Level.FINE,"Initializing running of  checker #" + this.index);
+
 		while(true) {
 			try {
 				Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
 				int toProcess = queue.drainTo(dataHoldersToProcess, 50);
+				AdapterMonitorLogger.logMessage(Level.FINE,"Processing DataHolders #" + toProcess);
 				
 				try {
 					if(toProcess > 0) {
@@ -251,7 +256,8 @@ public class AttributeChecker implements Runnable {
 
 			}
 		}
-		
+
+		AdapterMonitorLogger.logMessage(Level.FINE,"Found " + attributeMappings.size() + " attribute mappings");
 		if(!attributeMappings.isEmpty()) {
 			AttributeProcessor.processAttributes(attributeMappings);
 		}
