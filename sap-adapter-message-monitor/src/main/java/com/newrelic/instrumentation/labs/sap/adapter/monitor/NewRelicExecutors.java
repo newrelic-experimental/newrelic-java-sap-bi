@@ -7,6 +7,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 import com.newrelic.api.agent.NewRelic;
 
@@ -16,11 +17,13 @@ public class NewRelicExecutors {
 	private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(5);
 	
 	public static Future<?> addRunnableToThreadPool(Runnable runnable) {
+		AdapterMonitorLogger.logMessage(Level.FINE,"Adding Runnable to ThreadPool " + runnable.hashCode());
 		Future<?> f = threadPoolExecutor.submit(runnable);
 		return f;
 	}
 	
 	public static Future<?> addScheduledTask(Runnable task, long delay, TimeUnit timeUnit) {
+		AdapterMonitorLogger.logMessage("Scheduling task to run after " + delay + " " + timeUnit.toString());
 		Future<?> f = scheduledExecutor.schedule(task, delay, timeUnit);
 		return f;
 	}

@@ -1,9 +1,11 @@
 package com.sap.aii.af.app.mp.ejb;
 
 import java.util.LinkedList;
+import java.util.logging.Level;
 
 import com.newrelic.api.agent.weaver.Weave;
 import com.newrelic.api.agent.weaver.Weaver;
+import com.newrelic.instrumentation.labs.sap.adapter.monitor.AdapterMonitorLogger;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.AttributeProcessor;
 import com.newrelic.instrumentation.labs.sap.adapter.monitor.Utils;
 import com.sap.aii.af.lib.mp.module.ModuleContext;
@@ -24,9 +26,11 @@ public class ModuleProcessorBean {
 	
 	@SuppressWarnings({ "unused", "rawtypes" })
 	private ModuleContext createModuleContext(String channelId, String moduleNS, LinkedList moduleConfigList) {
+		AdapterMonitorLogger.logMessage(Level.FINE,"ModuleProcessorBean.createModuleContext");
 		ModuleContext ctx = Weaver.callOriginal();
 		ModuleData data = Utils.currentModuleData.get();
 		AttributeProcessor.record(ctx, data);
+		AdapterMonitorLogger.logMessage(Level.FINE,"Recorded message context and data");
 		return ctx;
 	}
 	

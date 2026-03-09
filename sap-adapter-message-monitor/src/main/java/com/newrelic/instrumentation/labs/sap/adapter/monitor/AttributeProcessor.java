@@ -67,6 +67,7 @@ public class AttributeProcessor {
 
 
 	protected static void processAttributes(Map<MessageKey, Map<String,String>> attributeMappings ) {
+		AdapterMonitorLogger.logMessage(Level.FINE,"processAttributes call has " + attributeMappings.size() + " attribute mappings");
 		long startTime = System.nanoTime();
 
 		List<MessageKey> msgKeys = new ArrayList<MessageKey>();
@@ -134,6 +135,7 @@ public class AttributeProcessor {
 				if(attributeMapping != null && !attributeMapping.isEmpty()) {
 					Map<String,String> attributesToReport = findConfiguredAttributes(attributeMapping);
 					if(attributesToReport == null || attributesToReport.isEmpty()) {
+						AdapterMonitorLogger.logMessage(Level.FINE,"processAttributes skipping message key " + msgKey + " because no attributes were found");
 						continue;
 					}
 					
@@ -142,6 +144,8 @@ public class AttributeProcessor {
 						for (MessageData msgData : list) {
 							String jsonString = MessageLoggingProcessor.getLogJson(msgData, attributesToReport);
 							AdapterMessageLogger.log(jsonString);
+							AdapterMonitorLogger.logMessage(Level.FINE,"processAttributes wrote " + jsonString + " to log");
+
 						} 
 					}
 					
@@ -307,6 +311,7 @@ public class AttributeProcessor {
 
 	@SuppressWarnings("rawtypes")
 	public static void record(ModuleContext moduleContext, ModuleData moduleData) {
+		AdapterMonitorLogger.logMessage(Level.FINER, "Recording module data and context");
 		if(!AttributeChecker.initialized) {
 			AttributeChecker.startChecker();
 		}
@@ -340,6 +345,8 @@ public class AttributeProcessor {
 		ModuleContext ctx = new ModuleContextImpl(moduleContext.getChannelID(), ht);
 		
 		AttributeChecker.addDataToQueue(new ModuleDataHolder(md, ctx));
+		AdapterMonitorLogger.logMessage(Level.FINER, "Added dataholder to queue");
+
 	}
 
 	private static Map<String,String> findConfiguredAttributes(Map<String,String> currentAttributes) {

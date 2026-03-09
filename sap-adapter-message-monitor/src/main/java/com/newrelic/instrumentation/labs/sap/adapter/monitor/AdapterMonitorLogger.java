@@ -5,11 +5,14 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.newrelic.agent.config.AgentConfig;
+import com.newrelic.agent.config.AgentConfigListener;
 import com.newrelic.agent.config.ConfigFileHelper;
+import com.newrelic.agent.service.ServiceFactory;
 import com.newrelic.api.agent.Config;
 import com.newrelic.api.agent.NewRelic;
 
-public class AdapterMonitorLogger {
+public class AdapterMonitorLogger implements AgentConfigListener {
 	
 	public static boolean initialized = false;
 	private static Logger LOGGER = null;;
@@ -25,9 +28,13 @@ public class AdapterMonitorLogger {
 	private static AdapterMonitorConfig currentConfig = null;
 	private AdapterMonitorLogger() {}
 	private static Level current_level = Level.INFO;
+	private static AdapterMonitorLogger instance;
 
 	public static void init() {
-		
+		if(instance == null) {
+			instance = new AdapterMonitorLogger();
+			ServiceFactory.getConfigService().addIAgentConfigListener(instance);
+		}
 		if(initialized) return;
 
 		if(currentConfig == null) {
@@ -58,8 +65,10 @@ public class AdapterMonitorLogger {
 		}
 
 		current_level = currentConfig.getLevel();
-		
+		LOGGER.setLevel(current_level);
+		NewRelic.getAgent().getInsights().recordCustomEvent("AdapterMonitorLogConfig", currentConfig.getCurrentSettings());
 		initialized = true;
+		logMessage(Level.FINE, "AdapterMonitorLogger initialized");
 	}
 
 	public static AdapterMonitorConfig getConfig(Config agentConfig) {
@@ -98,11 +107,12 @@ public class AdapterMonitorLogger {
 	}
 
 	public static void logMessage(Level level, String message) {
-		int levelIntValue =  level.intValue();
-		int currentLevelIntValue =  current_level.intValue();
-		if(levelIntValue >= currentLevelIntValue) {
-			LOGGER.log(level, message);
+		if(!enabled) return;
+
+		if(!initialized) {
+			init();
 		}
+		LOGGER.log(level, message);
 	}
 
 	public static void logMessage(String message) {
@@ -135,5 +145,16 @@ public class AdapterMonitorLogger {
 			LOGGER.log(Level.WARNING, message, t);
 		}
 	}
-	
+
+	@Override
+	public void configChanged(String s, AgentConfig agentConfig) {
+		NewRelic.getAgent().getLogger().log(Level.FINE, "In AdapterMonitorLogger, processing agent configuration change");
+		AdapterMonitorConfig config = getConfig(agentConfig);
+		if(config != null) {
+			if(!config.equals(currentConfig)) {
+				currentConfig = config;
+				init();
+			}
+		}
+	}
 }
