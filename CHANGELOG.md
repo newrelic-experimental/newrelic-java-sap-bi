@@ -1,3 +1,9 @@
+## 1.8.1 - 2026-03-09
+- **Bug Fix:** Resolved a critical performance regression causing agent shutdowns and high CPU usage.
+  - Replaced 6-minute sleep in `AttributeChecker` with efficient 1-second polling.
+  - Fixed memory leak caused by excessive String allocation in `AdapterMonitorLogger` (circuit breaker trip fix).
+  - Validated against official New Relic Java Agent architecture.
+
 ## Installation
 
 To install:
