@@ -115,6 +115,14 @@ public class AdapterMonitorLogger implements AgentConfigListener {
 		LOGGER.log(level, message);
 	}
 
+	public static boolean isLoggable(Level level) {
+		if(!enabled) return false;
+		if(!initialized) {
+			init();
+		}
+		return LOGGER.isLoggable(level);
+	}
+
 	public static void logMessage(String message) {
 		if(!enabled) return;
 		

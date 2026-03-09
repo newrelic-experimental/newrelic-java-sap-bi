@@ -30,8 +30,7 @@ public class AttributeChecker implements Runnable {
 	
 	private static final int MAX = 100000;
 	private static BlockingQueue<DataHolder> queue = new LinkedBlockingQueue<DataHolder>(MAX);
-	private static int NUMBER_OF_CONSUMERS = 5;
-	private static final long DELAY = (NUMBER_OF_CONSUMERS+1) * 60000L;
+	private static int NUMBER_OF_CONSUMERS = 3;
 	private int index;
 	
 	public static void addDataToQueue(DataHolder holder) {
@@ -47,7 +46,9 @@ public class AttributeChecker implements Runnable {
 			NewRelic.recordMetric("/SAP/AttributeProcess/HolderNotAdded", 1.0f);
 		} else {
 			NewRelic.recordMetric("/SAP/AttributeProcess/HolderAdded", 1.0f);
-			AdapterMonitorLogger.logMessage(Level.FINER,"added Dataholder to queue: " + holder);
+			if (AdapterMonitorLogger.isLoggable(Level.FINER)) {
+				AdapterMonitorLogger.logMessage(Level.FINER,"added Dataholder to queue: " + holder);
+			}
 		}
 	}
 
@@ -82,46 +83,25 @@ public class AttributeChecker implements Runnable {
 
 		while(true) {
 			try {
-				Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
-				int toProcess = queue.drainTo(dataHoldersToProcess, 50);
-				AdapterMonitorLogger.logMessage(Level.FINE,"Processing DataHolders #" + toProcess);
-				
-				try {
-					if(toProcess > 0) {
-						processDataHolders(dataHoldersToProcess);
-					}
-				} catch (Exception e) {
-					NewRelic.getAgent().getLogger().log(Level.FINER, e, "Error occurred trying to take holder from queue");
-					AdapterMonitorLogger.logErrorWithMessage("Error occurred trying to take holder from queue",e);			
-				}
-				
-				Timer timer = new Timer();
-				CompletableFuture<Boolean> future = new CompletableFuture<Boolean>();
-				
-				TimerTask waitTask = new TimerTask() {
+				DataHolder holder = queue.poll(1, TimeUnit.SECONDS);
+				if (holder != null) {
+					Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
+					dataHoldersToProcess.add(holder);
+					queue.drainTo(dataHoldersToProcess, 49);
 					
-					@Override
-					public void run() {
-						future.complete(true);
-						
-					}
-				};
-				
-				timer.schedule(waitTask, DELAY);
-				
-				try {
-					future.get(NUMBER_OF_CONSUMERS+1, TimeUnit.MINUTES);
-				} catch (Exception e) {
+					AdapterMonitorLogger.logMessage(Level.FINE,"Processing DataHolders #" + dataHoldersToProcess.size());
+					processDataHolders(dataHoldersToProcess);
 				}
-				
-				
+			} catch (InterruptedException e) {
+				NewRelic.getAgent().getLogger().log(Level.FINE, "AttributeChecker interrupted", e);
+				// Restore interrupted status
+				Thread.currentThread().interrupt();
+				break;
 			} catch (Exception e) {
-				NewRelic.getAgent().getLogger().log(Level.FINER, e, "Error occurred trying to take holder from queue");
-				AdapterMonitorLogger.logErrorWithMessage("Error occurred trying to take holder from queue",e);			
+				NewRelic.getAgent().getLogger().log(Level.FINER, e, "Error processing data holders");
+				AdapterMonitorLogger.logErrorWithMessage("Error processing data holders",e);			
 			}
-			
 		}
-		
 	}
 	
 	
