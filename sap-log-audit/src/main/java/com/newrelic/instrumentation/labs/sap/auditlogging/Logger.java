@@ -97,6 +97,7 @@ public class Logger implements Runnable, AgentConfigListener {
         
         // Initialize the new logging infrastructure
         AuditLoggingLogger.init();
+        MessageLoggingLogger.init();
         
         // Load message mappings
         loadMessageMappings();

@@ -220,8 +220,8 @@ public class AuditLogUtils {
     }
 
     public static boolean isMessageIgnored(String messageType) {
-        if(!AuditLoggingLogger.initialized) {
-            AuditLoggingLogger.init();
+        if(!MessageLoggingLogger.initialized) {
+            MessageLoggingLogger.init();
         }
         
         MessageLoggingConfig config = MessageLoggingLogger.getMessageConfig();
@@ -261,8 +261,12 @@ public class AuditLogUtils {
         if(config == null || !config.isMessageEnabled()) {
             return;
         }
-        
+
         String formattedMessage = formatMessageLog(message, status, errorCode, connName);
+        if(isMessageIgnored(formattedMessage)) {
+            return;
+        }
+        
         MessageLoggingLogger.logToMessageLog(formattedMessage);
     }
 
@@ -273,6 +277,10 @@ public class AuditLogUtils {
         }
         
         String formattedMessage = formatProcessingStateMessage(message, state);
+        if(isMessageIgnored(formattedMessage)) {
+            return;
+        }
+        
         MessageLoggingLogger.logToMessageLog(formattedMessage);
     }
 
@@ -284,6 +292,10 @@ public class AuditLogUtils {
         }
         
         String formattedMessage = formatQueueMessage(msgKey, messageStatus, errorCode, retries, timesFailed, messageSize, connectionName);
+        if(isMessageIgnored(formattedMessage)) {
+            return;
+        }
+        
         MessageLoggingLogger.logToMessageLog(formattedMessage);
     }
 }
