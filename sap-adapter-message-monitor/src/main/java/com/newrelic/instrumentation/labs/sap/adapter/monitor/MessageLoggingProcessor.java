@@ -382,8 +382,12 @@ public class MessageLoggingProcessor {
 		}
 
 		if(config.collectStatus()) {
-			String status = msgdata.getStatus().toString();
-			addToMap("Status", status, attributes);
+			MessageStatus status = msgdata.getStatus();
+			if(status != null) {
+				addToMap("Status", status.toString(), attributes);
+			} else {
+				addToMap("Status", null, attributes);
+			}
 		}
 
 		if(config.collectTimesFailed()) {
@@ -392,8 +396,12 @@ public class MessageLoggingProcessor {
 		}
 
 		if(config.collectTransport()) {
-			String transport = msgdata.getTransport().toString();
-			addToMap("Transport", transport, attributes);
+			Object transport = msgdata.getTransport();
+			if(transport != null) {
+				addToMap("Transport", transport.toString(), attributes);
+			} else {
+				addToMap("Transport", null, attributes);
+			}
 		}
 
 		if(config.collectValidUntil()) {

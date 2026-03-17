@@ -134,10 +134,6 @@ public class AttributeProcessor {
 				Map<String,String> attributeMapping = attributeMappings.get(msgKey);
 				if(attributeMapping != null && !attributeMapping.isEmpty()) {
 					Map<String,String> attributesToReport = findConfiguredAttributes(attributeMapping);
-					if(attributesToReport == null || attributesToReport.isEmpty()) {
-						AdapterMonitorLogger.logMessage(Level.FINE,"processAttributes skipping message key " + msgKey + " because no attributes were found");
-						continue;
-					}
 					
 					List<MessageData> list = dataMapping.get(msgKey);
 					if (list != null) {

@@ -130,7 +130,9 @@ public class AttributeMonitorLogger implements AgentConfigListener  {
 		
 		if(LOGGER == null) {
 			LOGGER = Logger.getLogger("AttributeMonitorLog");
-			LOGGER.addHandler(handler);
+			if(handler != null) {
+				LOGGER.addHandler(handler);
+			}
 		}
 		
 		initialized = true;
@@ -141,6 +143,7 @@ public class AttributeMonitorLogger implements AgentConfigListener  {
 		
 		if(!initialized) {
 			init();
+			if(!enabled) return;
 		}
  
 		String key = AttributeProcessor.MESSAGE_PROPERTIES + "-" + attribute.getPropertyName();
@@ -162,6 +165,7 @@ public class AttributeMonitorLogger implements AgentConfigListener  {
 		
 		if(!initialized) {
 			init();
+			if(!enabled) return;
 		}
 		String key = source + "-" + attribute;
 		if(!attributes.contains(key)) {
@@ -176,7 +180,7 @@ public class AttributeMonitorLogger implements AgentConfigListener  {
 	}
 
 	public static void logMessage(String message) {
-		if(message != null && !message.isEmpty()) {
+		if(LOGGER != null && message != null && !message.isEmpty()) {
 			LOGGER.log(Level.INFO, message);
 		}
 	}

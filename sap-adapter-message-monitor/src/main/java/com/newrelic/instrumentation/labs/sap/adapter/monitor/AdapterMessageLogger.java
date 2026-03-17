@@ -35,7 +35,7 @@ public class AdapterMessageLogger implements AgentConfigListener {
 		if(!initialized) {
 			init();
 		}
-		if(enabled) {
+		if(enabled && LOGGER != null) {
 			LOGGER.log(Level.INFO, message);
 		}
 	}
