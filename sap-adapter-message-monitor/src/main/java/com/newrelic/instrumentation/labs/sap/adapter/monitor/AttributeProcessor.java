@@ -4,14 +4,19 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -33,6 +38,7 @@ import com.sap.engine.interfaces.messaging.api.APIAccessFactory;
 import com.sap.engine.interfaces.messaging.api.Message;
 import com.sap.engine.interfaces.messaging.api.MessageKey;
 import com.sap.engine.interfaces.messaging.api.MessagePropertyKey;
+import com.sap.engine.interfaces.messaging.api.MessageStatus;
 import com.sap.engine.interfaces.messaging.api.XMLPayload;
 import com.sap.engine.interfaces.messaging.api.exception.InvalidParamException;
 import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
@@ -45,6 +51,27 @@ import com.sap.engine.interfaces.messaging.spi.AbstractMessage;
 import com.sap.engine.interfaces.messaging.spi.TransportableMessage;
 
 public class AttributeProcessor {
+
+	// Cache: Persists business fields across API calls
+	private static final Map<String, CachedBusinessFields> businessFieldsCache =
+		new ConcurrentHashMap<>();
+
+	// Buffer: Holds incomplete entries, indexed by MessageId (O(1) lookups)
+	private static final Map<String, List<BufferedMessageData>> messageDataBuffer =
+		new ConcurrentHashMap<>();
+
+	// Cleanup old cache and buffer entries periodically
+	static {
+		try {
+			NewRelicExecutors.addScheduledTaskAtFixedRate(() -> {
+				cleanupExpiredCache();
+				processTimedOutBufferedEntries();
+			}, 5, 5, TimeUnit.MINUTES);
+		} catch (Exception e) {
+			NewRelic.getAgent().getLogger().log(Level.WARNING, e,
+				"Failed to schedule cache/buffer cleanup task");
+		}
+	}
 
 	protected static final String MESSAGE_DOCUMENT = "MessageDocument";
 	protected static final String PAYLOAD_ATTRIBUTES = "PayLoad-Attributes";
@@ -130,22 +157,96 @@ public class AttributeProcessor {
 			}
 
 
+			// Process each MessageKey
 			for(MessageKey msgKey : msgKeys) {
+				String messageId = msgKey.getMessageId();
 				Map<String,String> attributeMapping = attributeMappings.get(msgKey);
+
 				if(attributeMapping != null && !attributeMapping.isEmpty()) {
 					Map<String,String> attributesToReport = findConfiguredAttributes(attributeMapping);
-					
+
+					// STEP 1: Check if we have complete business fields in current attributeMapping
+					Map<String,String> completeBusinessFields = extractCompleteBusinessFields(attributesToReport);
+
+					if (!completeBusinessFields.isEmpty()) {
+						// STEP 2: Cache for future API calls
+						businessFieldsCache.put(messageId, new CachedBusinessFields(completeBusinessFields));
+						AdapterMonitorLogger.logMessage(Level.FINE,
+							"Cached " + completeBusinessFields.size() + " business fields for " + messageId);
+
+						// STEP 3: Check if we have buffered entries waiting for this data
+						List<BufferedMessageData> bufferedEntries = getBufferedEntriesForMessage(messageId);
+						if (!bufferedEntries.isEmpty()) {
+							AdapterMonitorLogger.logMessage(Level.FINE,
+								"Found " + bufferedEntries.size() + " buffered entries for " + messageId + ", enriching and logging now");
+
+							// Enrich and log all buffered entries
+							for (BufferedMessageData buffered : bufferedEntries) {
+								enrichWithCachedFields(buffered.attributes, completeBusinessFields);
+								String jsonString = MessageLoggingProcessor.getLogJson(buffered.messageData, buffered.attributes);
+								AdapterMessageLogger.log(jsonString);
+								AdapterMonitorLogger.logMessage(Level.FINE,"Logged buffered entry: " + jsonString);
+							}
+
+							// Remove from buffer
+							removeBufferedEntriesForMessage(messageId);
+						}
+					}
+
+					// STEP 4: Try to get cached business fields (might be from previous call)
+					CachedBusinessFields cached = businessFieldsCache.get(messageId);
+
 					List<MessageData> list = dataMapping.get(msgKey);
 					if (list != null) {
 						for (MessageData msgData : list) {
-							String jsonString = MessageLoggingProcessor.getLogJson(msgData, attributesToReport);
-							AdapterMessageLogger.log(jsonString);
-							AdapterMonitorLogger.logMessage(Level.FINE,"processAttributes wrote " + jsonString + " to log");
+							// Create a copy of attributes for each entry
+							Map<String,String> entryAttributes = new HashMap<>(attributesToReport);
 
-						} 
+							// STEP 5: Enrich with cached fields if available
+							if (cached != null && !cached.isExpired()) {
+								enrichWithCachedFields(entryAttributes, cached.fields);
+
+								// Log immediately with complete data
+								String jsonString = MessageLoggingProcessor.getLogJson(msgData, entryAttributes);
+								AdapterMessageLogger.log(jsonString);
+								AdapterMonitorLogger.logMessage(Level.FINE,"Logged with cached fields: " + jsonString);
+							} else {
+								// STEP 6: No cached data yet - check if business fields are incomplete
+								boolean hasIncompleteFields = hasIncompleteBusinessFields(entryAttributes);
+
+								if (hasIncompleteFields) {
+									// Buffer this entry - don't log yet
+									bufferMessageData(messageId, msgData, entryAttributes);
+									AdapterMonitorLogger.logMessage(Level.FINE,
+										"Buffered entry for " + messageId + " (waiting for complete business fields)");
+								} else {
+									// No user attributes configured OR all fields complete - log immediately
+									String jsonString = MessageLoggingProcessor.getLogJson(msgData, entryAttributes);
+									AdapterMessageLogger.log(jsonString);
+									AdapterMonitorLogger.logMessage(Level.FINE,"Logged immediately: " + jsonString);
+								}
+							}
+						}
+
+						// STEP 7: If we processed final/delivered status, cleanup
+						boolean hasFinalStatus = false;
+						for (MessageData md : list) {
+							MessageStatus status = md.getStatus();
+							if (status != null &&
+								(MessageStatus.DELIVERED.equals(status) ||
+								 MessageStatus.NON_DELIVERED.equals(status))) {
+								hasFinalStatus = true;
+								break;
+							}
+						}
+
+						if (hasFinalStatus) {
+							businessFieldsCache.remove(messageId);
+							removeBufferedEntriesForMessage(messageId);
+							AdapterMonitorLogger.logMessage(Level.FINE,
+								"Cleaned up cache and buffer for " + messageId + " (final status reached)");
+						}
 					}
-					
-					
 				}
 			}
 		} catch (InvalidParamException e) {
@@ -156,6 +257,8 @@ public class AttributeProcessor {
 		
 		long endTime = System.nanoTime();
 		NewRelic.recordMetric("SAP/AttributeProcessor/SetAttributesTimer(ms)", (endTime-startTime)/1000000.0f);
+		NewRelic.recordMetric("SAP/AttributeProcessor/CacheSize", businessFieldsCache.size());
+		NewRelic.recordMetric("SAP/AttributeProcessor/BufferSize", messageDataBuffer.size());
 	}
 	
 	public static void recordMessageAndContext(TransportableMessage message, Map<String, Object> context) {
@@ -396,5 +499,278 @@ public class AttributeProcessor {
 		}
 
 		return attributesToReport;
+	}
+
+	// ============================================================
+	// HELPER METHODS FOR BUFFERING AND CACHING
+	// ============================================================
+
+	/**
+	 * Extracts complete business fields from attributes
+	 * Only returns fields that have actual values (not "Not_Reported")
+	 */
+	static Map<String,String> extractCompleteBusinessFields(Map<String,String> attributes) {
+		Map<String,String> completeFields = new HashMap<>();
+		AttributeConfig config = AttributeConfig.getInstance();
+		Set<String> configuredAttributes = config.attributesToCollect();
+
+		if (configuredAttributes == null || configuredAttributes.isEmpty()) {
+			return completeFields;
+		}
+
+		for (String attributeName : configuredAttributes) {
+			String value = attributes.get(attributeName);
+			if (value != null && !value.isEmpty() && !"Not_Reported".equals(value)) {
+				completeFields.put(attributeName, value);
+			}
+		}
+
+		return completeFields;
+	}
+
+	/**
+	 * Checks if business fields are incomplete (missing or "Not_Reported")
+	 */
+	static boolean hasIncompleteBusinessFields(Map<String,String> attributes) {
+		AttributeConfig config = AttributeConfig.getInstance();
+		Set<String> configuredAttributes = config.attributesToCollect();
+
+		if (configuredAttributes == null || configuredAttributes.isEmpty()) {
+			return false; // No user attributes configured - nothing to wait for
+		}
+
+		for (String attributeName : configuredAttributes) {
+			String value = attributes.get(attributeName);
+			if (value == null || value.isEmpty() || "Not_Reported".equals(value)) {
+				return true; // At least one field incomplete
+			}
+		}
+
+		return false; // All fields complete
+	}
+
+	/**
+	 * Enriches attributes with cached business fields
+	 * Only replaces "Not_Reported" or missing values
+	 */
+	static void enrichWithCachedFields(
+		Map<String,String> attributes,
+		Map<String,String> cachedFields
+	) {
+		for (Map.Entry<String,String> entry : cachedFields.entrySet()) {
+			String fieldName = entry.getKey();
+			String cachedValue = entry.getValue();
+			String currentValue = attributes.get(fieldName);
+
+			if (currentValue == null ||
+				currentValue.isEmpty() ||
+				"Not_Reported".equals(currentValue)) {
+				attributes.put(fieldName, cachedValue);
+			}
+		}
+	}
+
+	/**
+	 * Buffer a MessageData entry that has incomplete business fields
+	 */
+	static void bufferMessageData(String messageId, MessageData msgData, Map<String,String> attributes) {
+		BufferedMessageData buffered = new BufferedMessageData(msgData, new HashMap<>(attributes));
+		messageDataBuffer.computeIfAbsent(messageId, k -> new CopyOnWriteArrayList<>()).add(buffered);
+	}
+
+	/**
+	 * Get all buffered entries for a specific MessageId (O(1) operation)
+	 */
+	static List<BufferedMessageData> getBufferedEntriesForMessage(String messageId) {
+		return messageDataBuffer.getOrDefault(messageId, Collections.emptyList());
+	}
+
+	/**
+	 * Remove all buffered entries for a specific MessageId
+	 */
+	static void removeBufferedEntriesForMessage(String messageId) {
+		messageDataBuffer.remove(messageId);
+	}
+
+	/**
+	 * Process buffered entries that have timed out (no complete data arrived)
+	 * Logs them with incomplete data rather than buffering forever
+	 */
+	static void processTimedOutBufferedEntries() {
+		int processed = 0;
+		Iterator<Map.Entry<String, List<BufferedMessageData>>> iterator =
+			messageDataBuffer.entrySet().iterator();
+
+		while (iterator.hasNext()) {
+			Map.Entry<String, List<BufferedMessageData>> entry = iterator.next();
+			List<BufferedMessageData> entries = entry.getValue();
+
+			// Process and remove timed-out entries
+			Iterator<BufferedMessageData> entryIterator = entries.iterator();
+			while (entryIterator.hasNext()) {
+				BufferedMessageData buffered = entryIterator.next();
+				if (buffered.isTimedOut()) {
+					AdapterMonitorLogger.logMessage(Level.WARNING,
+						"Buffered entry timed out, logging with incomplete data: " + entry.getKey());
+
+					String jsonString = MessageLoggingProcessor.getLogJson(
+						buffered.messageData,
+						buffered.attributes
+					);
+					AdapterMessageLogger.log(jsonString);
+
+					entryIterator.remove();
+					processed++;
+				}
+			}
+
+			// If all entries for this MessageId processed, remove from map
+			if (entries.isEmpty()) {
+				iterator.remove();
+			}
+		}
+
+		if (processed > 0) {
+			AdapterMonitorLogger.logMessage(Level.FINE,
+				"Processed " + processed + " timed-out buffered entries");
+			NewRelic.recordMetric("SAP/AttributeProcessor/BufferedEntriesTimedOut", processed);
+		}
+	}
+
+	/**
+	 * Cleanup expired cache entries (runs every 5 minutes)
+	 */
+	static void cleanupExpiredCache() {
+		int removed = 0;
+		Iterator<Map.Entry<String, CachedBusinessFields>> iterator =
+			businessFieldsCache.entrySet().iterator();
+
+		while (iterator.hasNext()) {
+			Map.Entry<String, CachedBusinessFields> entry = iterator.next();
+			if (entry.getValue().isExpired()) {
+				iterator.remove();
+				removed++;
+			}
+		}
+
+		if (removed > 0) {
+			AdapterMonitorLogger.logMessage(Level.FINE,
+				"Cleaned up " + removed + " expired cache entries");
+			NewRelic.recordMetric("SAP/AttributeProcessor/CacheEntriesExpired", removed);
+		}
+	}
+
+	// ============================================================
+	// TEST HELPER METHODS (Package-private for unit tests)
+	// ============================================================
+
+	/**
+	 * Clear cache and buffer (for unit tests)
+	 */
+	static void clearCacheAndBuffer() {
+		businessFieldsCache.clear();
+		messageDataBuffer.clear();
+	}
+
+	/**
+	 * Get cached business fields (for unit tests)
+	 */
+	static CachedBusinessFields getCachedBusinessFields(String messageId) {
+		return businessFieldsCache.get(messageId);
+	}
+
+	/**
+	 * Cache business fields (for unit tests)
+	 */
+	static void cacheBusinessFields(String messageId, Map<String, String> fields) {
+		businessFieldsCache.put(messageId, new CachedBusinessFields(fields));
+	}
+
+	/**
+	 * Remove cached business fields (for unit tests)
+	 */
+	static void removeCachedBusinessFields(String messageId) {
+		businessFieldsCache.remove(messageId);
+	}
+
+	/**
+	 * Find complete value with prefix search (for unit tests)
+	 */
+	static String findCompleteValue(String attributeName, Map<String,String> attributeMapping) {
+		// Try direct lookup first
+		String value = attributeMapping.get(attributeName);
+		if (value != null && !value.isEmpty() && !"Not_Reported".equals(value)) {
+			return value;
+		}
+
+		// Try common prefixes
+		String[] prefixes = {"modulecontext-", "supplementaldata-", "SupplementalData-", "ModuleContext-"};
+
+		for (String prefix : prefixes) {
+			value = attributeMapping.get(prefix + attributeName);
+			if (value != null && !value.isEmpty() && !"Not_Reported".equals(value)) {
+				return value;
+			}
+
+			// Also try lowercase attribute name
+			value = attributeMapping.get(prefix + attributeName.toLowerCase());
+			if (value != null && !value.isEmpty() && !"Not_Reported".equals(value)) {
+				return value;
+			}
+		}
+
+		return null;
+	}
+
+	// ============================================================
+	// INNER CLASSES
+	// ============================================================
+
+	/**
+	 * Cached business fields for a MessageId
+	 */
+	static class CachedBusinessFields {
+		final Map<String, String> fields;
+		final long timestamp;
+		final long expirationMillis;
+
+		CachedBusinessFields(Map<String, String> fields) {
+			this(fields, 600000L); // Default 10 minutes
+		}
+
+		CachedBusinessFields(Map<String, String> fields, long expirationMillis) {
+			this.fields = fields;
+			this.timestamp = System.currentTimeMillis();
+			this.expirationMillis = expirationMillis;
+		}
+
+		boolean isExpired() {
+			return (System.currentTimeMillis() - timestamp) > expirationMillis;
+		}
+	}
+
+	/**
+	 * Buffered message data waiting for complete business fields
+	 */
+	static class BufferedMessageData {
+		final MessageData messageData;
+		final Map<String, String> attributes;
+		final long bufferedTime;
+		final long timeoutMillis;
+
+		BufferedMessageData(MessageData messageData, Map<String, String> attributes) {
+			this(messageData, attributes, 30000L); // Default 30 seconds
+		}
+
+		BufferedMessageData(MessageData messageData, Map<String, String> attributes, long timeoutMillis) {
+			this.messageData = messageData;
+			this.attributes = attributes;
+			this.bufferedTime = System.currentTimeMillis();
+			this.timeoutMillis = timeoutMillis;
+		}
+
+		boolean isTimedOut() {
+			return (System.currentTimeMillis() - bufferedTime) > timeoutMillis;
+		}
 	}
 }
