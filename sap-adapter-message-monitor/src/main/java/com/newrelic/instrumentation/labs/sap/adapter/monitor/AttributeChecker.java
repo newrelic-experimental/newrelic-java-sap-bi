@@ -9,12 +9,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.DelayQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 import com.newrelic.agent.config.AgentConfig;
@@ -33,9 +31,23 @@ public class AttributeChecker implements Runnable {
 	public static boolean initialized = false;
 
 	private static final int MAX = 100000;
-	private static BlockingQueue<DataHolder> queue = new LinkedBlockingQueue<DataHolder>(MAX);
-	private static int NUMBER_OF_CONSUMERS = 3;
+	// DelayQueue for guaranteed minimum delay per message
+	private static DelayQueue<TimestampedDataHolder> queue = new DelayQueue<>();
+	// 2 consumer threads: sufficient for typical load (100 msg/min)
+	// Capacity: 2 threads × 50 msg/batch ÷ 10s = 600 msg/min (6x current load)
+	private static int NUMBER_OF_CONSUMERS = 2;
 	private int index;
+
+	// Atomic counters for accurate queue metrics
+	private static AtomicInteger totalMessagesInQueue = new AtomicInteger(0);
+	private static AtomicInteger readyMessagesCount = new AtomicInteger(0);
+
+	// Global deduplication cache: SHARED across ALL threads
+	// Key: MessageId+Direction, Value: timestamp when captured
+	// Prevents same message from being captured multiple times within short window
+	private static final ConcurrentHashMap<String, Long> recentlyCapturedMessages =
+		new ConcurrentHashMap<>();
+	private static final long CAPTURE_DEDUP_WINDOW_MS = 30000; // 30 seconds
 
 	// Configuration key for polling interval (in seconds)
 	private static final String POLLING_INTERVAL_CONFIG_KEY = "SAP.adaptermessagelog.polling_interval_seconds";
@@ -62,22 +74,101 @@ public class AttributeChecker implements Runnable {
 	}
 	
 	public static void addDataToQueue(DataHolder holder) {
-		if(queue.remainingCapacity() < 100) {
-			List<DataHolder> temp = new ArrayList<DataHolder>();
-			int n = queue.drainTo(temp, 20000);
-			temp.clear();
-			AdapterMonitorLogger.logMessage("Removed " + n + " Dataholder entries due to capacity constraints");
-		}
-		boolean added = queue.add(holder);
-		if(!added) {
-			AdapterMonitorLogger.logMessage("Failed to add Dataholder to queue: " + holder);
-			NewRelic.recordMetric("/SAP/AttributeProcess/HolderNotAdded", 1.0f);
-		} else {
-			NewRelic.recordMetric("/SAP/AttributeProcess/HolderAdded", 1.0f);
-			if (AdapterMonitorLogger.isLoggable(Level.FINER)) {
-				AdapterMonitorLogger.logMessage(Level.FINER,"added Dataholder to queue: " + holder);
+		// Extract MessageKey for deduplication check
+		String messageKeyStr = extractMessageKeyString(holder);
+
+		if (messageKeyStr != null) {
+			// Check global deduplication cache (SHARED across all threads)
+			Long lastCaptureTime = recentlyCapturedMessages.get(messageKeyStr);
+			long now = System.currentTimeMillis();
+
+			if (lastCaptureTime != null) {
+				long elapsed = now - lastCaptureTime;
+				if (elapsed < CAPTURE_DEDUP_WINDOW_MS) {
+					// Recently captured - SKIP to prevent duplicate
+					NewRelic.recordMetric("/SAP/AttributeProcess/DuplicateCaptureSkipped", 1.0f);
+					if (AdapterMonitorLogger.isLoggable(Level.FINE)) {
+						AdapterMonitorLogger.logMessage(Level.FINE,
+							"Skipped duplicate capture of " + messageKeyStr + " (captured " +
+							elapsed + "ms ago, within " + CAPTURE_DEDUP_WINDOW_MS + "ms window)");
+					}
+					return; // SKIP adding to queue
+				}
 			}
+
+			// Not a duplicate (or expired) - mark as captured NOW
+			// Cleanup happens via periodic background task (no per-message scheduling)
+			recentlyCapturedMessages.put(messageKeyStr, now);
 		}
+
+		// Check capacity (DelayQueue is unbounded, but we enforce a soft limit)
+		int currentSize = totalMessagesInQueue.get();
+		if(currentSize >= MAX) {
+			// Queue too large - drain oldest messages
+			List<TimestampedDataHolder> temp = new ArrayList<>();
+			int drained = queue.drainTo(temp, 20000);
+			totalMessagesInQueue.addAndGet(-drained);
+			temp.clear();
+			AdapterMonitorLogger.logMessage("Removed " + drained + " Dataholder entries due to capacity constraints");
+		}
+
+		try {
+			// Wrap in TimestampedDataHolder with configured delay
+			long delayMillis = pollingIntervalSeconds * 1000;
+			TimestampedDataHolder timestamped = new TimestampedDataHolder(holder, delayMillis);
+
+			// Add to DelayQueue
+			boolean added = queue.add(timestamped);
+			if(added) {
+				// Increment total count only
+				// Note: readyMessagesCount is calculated dynamically by background task
+				totalMessagesInQueue.incrementAndGet();
+
+				NewRelic.recordMetric("/SAP/AttributeProcess/HolderAdded", 1.0f);
+				if (AdapterMonitorLogger.isLoggable(Level.FINER)) {
+					AdapterMonitorLogger.logMessage(Level.FINER,
+						"Added Dataholder to DelayQueue with " + pollingIntervalSeconds + "s delay: " + holder);
+				}
+			} else {
+				AdapterMonitorLogger.logMessage("Failed to add Dataholder to DelayQueue: " + holder);
+				NewRelic.recordMetric("/SAP/AttributeProcess/HolderNotAdded", 1.0f);
+			}
+		} catch (Exception e) {
+			AdapterMonitorLogger.logErrorWithMessage("Error adding to DelayQueue", e);
+			NewRelic.recordMetric("/SAP/AttributeProcess/HolderNotAdded", 1.0f);
+		}
+	}
+
+	/**
+	 * Extract MessageKey as string (MessageId|Direction) for deduplication
+	 * Returns null if MessageKey cannot be extracted
+	 */
+	private static String extractMessageKeyString(DataHolder holder) {
+		try {
+			if (holder instanceof ModuleDataHolder) {
+				ModuleDataHolder moduleHolder = (ModuleDataHolder) holder;
+				ModuleData moduleData = moduleHolder.getModuleData();
+				if (moduleData != null) {
+					Object principalData = moduleData.getPrincipalData();
+					if (principalData instanceof Message) {
+						Message message = (Message) principalData;
+						MessageKey msgKey = message.getMessageKey();
+						if (msgKey != null) {
+							// Create composite key: MessageId|Direction
+							String messageId = msgKey.getMessageId();
+							String direction = msgKey.getDirection().toString();
+							return messageId + "|" + direction;
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			// If we can't extract MessageKey, allow it through
+			// Better to have potential duplicate than lose message
+			AdapterMonitorLogger.logMessage(Level.FINE,
+				"Could not extract MessageKey for deduplication: " + e.getMessage());
+		}
+		return null;
 	}
 
 	/**
@@ -127,9 +218,68 @@ public class AttributeChecker implements Runnable {
 			AdapterMonitorLogger.logErrorWithMessage("AttributeChecker failed to started",e);
 			initialized = false;
 		}
+
+		// Calculate ready count and record metrics every 10 seconds
+		// This scans the queue to count how many messages have delay expired
 		NewRelicExecutors.addScheduledTaskAtFixedRate(() -> {
-			NewRelic.recordMetric("/SAP/AttributeProcess/HolderQueueSize", queue.size());
-		}, 1, 1, TimeUnit.MINUTES);
+			try {
+				int total = totalMessagesInQueue.get();
+
+				// Calculate how many messages are ready (delay expired)
+				int ready = 0;
+				for (TimestampedDataHolder holder : queue) {
+					if (holder.isReady()) {
+						ready++;
+					}
+				}
+
+				// Update ready count
+				readyMessagesCount.set(ready);
+				int waiting = total - ready;
+
+				// Detailed metrics for DelayQueue
+				NewRelic.recordMetric("/SAP/AttributeProcess/HolderQueueSize/Total", total);
+				NewRelic.recordMetric("/SAP/AttributeProcess/HolderQueueSize/Ready", ready);
+				NewRelic.recordMetric("/SAP/AttributeProcess/HolderQueueSize/Waiting", waiting);
+
+				// Backwards compatibility: use "Ready" count for old metric name
+				// This represents actual backlog (ready to process but not yet processed)
+				NewRelic.recordMetric("/SAP/AttributeProcess/HolderQueueSize", ready);
+
+				if (AdapterMonitorLogger.isLoggable(Level.FINE)) {
+					AdapterMonitorLogger.logMessage(Level.FINE,
+						"Queue metrics - Total: " + total + ", Ready: " + ready + ", Waiting: " + waiting);
+				}
+			} catch (Exception e) {
+				AdapterMonitorLogger.logErrorWithMessage("Error calculating queue metrics", e);
+			}
+		}, 10, 10, TimeUnit.SECONDS);  // Run every 10 seconds
+
+		// Cleanup expired entries from deduplication cache every 60 seconds
+		// Removes entries older than CAPTURE_DEDUP_WINDOW_MS
+		NewRelicExecutors.addScheduledTaskAtFixedRate(() -> {
+			try {
+				long now = System.currentTimeMillis();
+				int removed = 0;
+
+				// Iterate and remove expired entries
+				recentlyCapturedMessages.entrySet().removeIf(entry -> {
+					long age = now - entry.getValue();
+					return age > CAPTURE_DEDUP_WINDOW_MS;
+				});
+
+				if (removed > 0 && AdapterMonitorLogger.isLoggable(Level.FINE)) {
+					AdapterMonitorLogger.logMessage(Level.FINE,
+						"Cleaned up " + removed + " expired entries from deduplication cache");
+				}
+
+				// Record cache size metric
+				NewRelic.recordMetric("/SAP/AttributeProcess/DedupCacheSize",
+					recentlyCapturedMessages.size());
+			} catch (Exception e) {
+				AdapterMonitorLogger.logErrorWithMessage("Error cleaning deduplication cache", e);
+			}
+		}, 60, 60, TimeUnit.SECONDS);  // Run every 60 seconds
 	}
 	
 	private AttributeChecker(int index) {
@@ -140,19 +290,55 @@ public class AttributeChecker implements Runnable {
 	@Override
 	public void run() {
 		AdapterMonitorLogger.logMessage(Level.FINE,"Initializing running of checker #" + this.index +
-			" with polling interval: " + pollingIntervalSeconds + " seconds");
+			" with polling interval: " + pollingIntervalSeconds + " seconds (DelayQueue enforced)");
 
 		while(true) {
 			try {
-				// Use configurable polling interval (default: 5 seconds)
-				// This allows messages to complete processing (DLNG → DLVD) before querying SAP API
-				DataHolder holder = queue.poll(pollingIntervalSeconds, TimeUnit.SECONDS);
-				if (holder != null) {
-					Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<DataHolder>();
-					dataHoldersToProcess.add(holder);
-					queue.drainTo(dataHoldersToProcess, 49);
+				// DelayQueue.poll() only returns messages where delay has expired!
+				// No manual delay checking needed - queue enforces it automatically
+				TimestampedDataHolder timestamped = queue.poll(pollingIntervalSeconds, TimeUnit.SECONDS);
 
-					AdapterMonitorLogger.logMessage(Level.FINE,"Processing DataHolders #" + dataHoldersToProcess.size());
+				if (timestamped != null) {
+					// Unwrap the actual DataHolder
+					DataHolder holder = timestamped.getDelegate();
+
+					// Update total counter - message removed from queue
+					// Note: readyMessagesCount is updated by background task (no need to decrement here)
+					totalMessagesInQueue.decrementAndGet();
+
+					if (AdapterMonitorLogger.isLoggable(Level.FINE)) {
+						AdapterMonitorLogger.logMessage(Level.FINE,
+							"Retrieved message that waited " + timestamped.getElapsedMillis() +
+							"ms (guaranteed >= " + pollingIntervalSeconds + "s by DelayQueue)");
+					}
+
+					// Collect batch of ready messages
+					Set<DataHolder> dataHoldersToProcess = new LinkedHashSet<>();
+					dataHoldersToProcess.add(holder);
+
+					// Drain additional ready messages (up to 49 more, total 50)
+					// DelayQueue.drainTo() only removes messages where delay has expired!
+					List<TimestampedDataHolder> moreMsgs = new ArrayList<>();
+					int drained = queue.drainTo(moreMsgs, 49);
+
+					if (drained > 0) {
+						// Update total counter for all drained messages
+						// Note: readyMessagesCount is updated by background task
+						totalMessagesInQueue.addAndGet(-drained);
+
+						// Unwrap all timestamped holders
+						for (TimestampedDataHolder ts : moreMsgs) {
+							dataHoldersToProcess.add(ts.getDelegate());
+						}
+
+						AdapterMonitorLogger.logMessage(Level.FINE,
+							"Drained " + drained + " additional ready messages (all guaranteed >= " +
+							pollingIntervalSeconds + "s delay)");
+					}
+
+					AdapterMonitorLogger.logMessage(Level.FINE,
+						"Processing batch of " + dataHoldersToProcess.size() + " DataHolders " +
+						"(all waited >= " + pollingIntervalSeconds + "s)");
 					processDataHolders(dataHoldersToProcess);
 				}
 			} catch (InterruptedException e) {

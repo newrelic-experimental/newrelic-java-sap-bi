@@ -11,11 +11,15 @@ public class ModuleDataHolder implements DataHolder {
 	protected ModuleContext moduleContext;
 	protected AtomicInteger invocations = new AtomicInteger(0);
 	private static final int MAX_RETRIES = 5;
-	
+
+	// Timestamp when message was captured (for enforcing minimum delay)
+	private final long captureTimestamp;
+
 	public ModuleDataHolder(ModuleData moduleData, ModuleContext moduleContext) {
 		super();
 		this.moduleData = moduleData;
 		this.moduleContext = moduleContext;
+		this.captureTimestamp = System.currentTimeMillis();
 	}
 
 	public ModuleData getModuleData() {
@@ -31,5 +35,25 @@ public class ModuleDataHolder implements DataHolder {
 		return count < MAX_RETRIES;
 	}
 
-	
+	/**
+	 * Returns timestamp (in milliseconds) when this message was captured
+	 */
+	public long getCaptureTimestamp() {
+		return captureTimestamp;
+	}
+
+	/**
+	 * Returns elapsed time (in milliseconds) since message was captured
+	 */
+	public long getElapsedMillis() {
+		return System.currentTimeMillis() - captureTimestamp;
+	}
+
+	/**
+	 * Returns true if message has been in queue for at least the specified delay
+	 */
+	public boolean hasWaitedAtLeast(long delayMillis) {
+		return getElapsedMillis() >= delayMillis;
+	}
+
 }
