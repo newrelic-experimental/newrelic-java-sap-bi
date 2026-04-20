@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -197,54 +198,56 @@ public class AttributeProcessor {
 					CachedBusinessFields cached = businessFieldsCache.get(messageId);
 
 					List<MessageData> list = dataMapping.get(msgKey);
-					if (list != null) {
-						for (MessageData msgData : list) {
-							// Create a copy of attributes for each entry
+					if (list != null && !list.isEmpty()) {
+						// STEP 5: Select LATEST entry (latest status + latest timestamp)
+						MessageData latestEntry = selectLatestEntry(list);
+
+						if (latestEntry != null) {
+							AdapterMonitorLogger.logMessage(Level.FINE,
+								"Selected latest entry for " + msgKey + " (status: " + latestEntry.getStatus() +
+								") from " + list.size() + " entries");
+							NewRelic.recordMetric("SAP/AttributeProcessor/EntriesDeduped", list.size() - 1);
+
+							// Create attributes for the latest entry
 							Map<String,String> entryAttributes = new HashMap<>(attributesToReport);
 
-							// STEP 5: Enrich with cached fields if available
+							// STEP 6: Enrich with cached fields if available
 							if (cached != null && !cached.isExpired()) {
 								enrichWithCachedFields(entryAttributes, cached.fields);
 
 								// Log immediately with complete data
-								String jsonString = MessageLoggingProcessor.getLogJson(msgData, entryAttributes);
+								String jsonString = MessageLoggingProcessor.getLogJson(latestEntry, entryAttributes);
 								AdapterMessageLogger.log(jsonString);
 								AdapterMonitorLogger.logMessage(Level.FINE,"Logged with cached fields: " + jsonString);
 							} else {
-								// STEP 6: No cached data yet - check if business fields are incomplete
+								// STEP 7: No cached data yet - check if business fields are incomplete
 								boolean hasIncompleteFields = hasIncompleteBusinessFields(entryAttributes);
 
 								if (hasIncompleteFields) {
 									// Buffer this entry - don't log yet
-									bufferMessageData(messageId, msgData, entryAttributes);
+									bufferMessageData(messageId, latestEntry, entryAttributes);
 									AdapterMonitorLogger.logMessage(Level.FINE,
 										"Buffered entry for " + messageId + " (waiting for complete business fields)");
 								} else {
 									// No user attributes configured OR all fields complete - log immediately
-									String jsonString = MessageLoggingProcessor.getLogJson(msgData, entryAttributes);
+									String jsonString = MessageLoggingProcessor.getLogJson(latestEntry, entryAttributes);
 									AdapterMessageLogger.log(jsonString);
 									AdapterMonitorLogger.logMessage(Level.FINE,"Logged immediately: " + jsonString);
 								}
 							}
-						}
 
-						// STEP 7: If we processed final/delivered status, cleanup
-						boolean hasFinalStatus = false;
-						for (MessageData md : list) {
-							MessageStatus status = md.getStatus();
-							if (status != null &&
+							// STEP 8: If we processed final/delivered status, cleanup
+							MessageStatus status = latestEntry.getStatus();
+							boolean hasFinalStatus = (status != null &&
 								(MessageStatus.DELIVERED.equals(status) ||
-								 MessageStatus.NON_DELIVERED.equals(status))) {
-								hasFinalStatus = true;
-								break;
-							}
-						}
+								 MessageStatus.NON_DELIVERED.equals(status)));
 
-						if (hasFinalStatus) {
-							businessFieldsCache.remove(messageId);
-							removeBufferedEntriesForMessage(messageId);
-							AdapterMonitorLogger.logMessage(Level.FINE,
-								"Cleaned up cache and buffer for " + messageId + " (final status reached)");
+							if (hasFinalStatus) {
+								businessFieldsCache.remove(messageId);
+								removeBufferedEntriesForMessage(messageId);
+								AdapterMonitorLogger.logMessage(Level.FINE,
+									"Cleaned up cache and buffer for " + messageId + " (final status reached)");
+							}
 						}
 					}
 				}
@@ -772,5 +775,99 @@ public class AttributeProcessor {
 		boolean isTimedOut() {
 			return (System.currentTimeMillis() - bufferedTime) > timeoutMillis;
 		}
+	}
+
+	/**
+	 * Selects the latest entry from multiple MessageData entries
+	 * Priority: Latest status (DELIVERED > DELIVERING > TO_BE_DELIVERED)
+	 * Then: Latest timestamp within same status
+	 */
+	static MessageData selectLatestEntry(List<MessageData> entries) {
+		if (entries == null || entries.isEmpty()) {
+			return null;
+		}
+
+		if (entries.size() == 1) {
+			return entries.get(0);
+		}
+
+		// Group by status
+		Map<MessageStatus, List<MessageData>> entriesByStatus = new HashMap<>();
+		for (MessageData entry : entries) {
+			MessageStatus status = entry.getStatus();
+			if (status != null) {
+				entriesByStatus.computeIfAbsent(status, k -> new ArrayList<>()).add(entry);
+			}
+		}
+
+		// Select latest status
+		MessageStatus latestStatus = selectLatestStatus(entriesByStatus.keySet());
+		if (latestStatus == null) {
+			// No valid status found, return first entry
+			return entries.get(0);
+		}
+
+		List<MessageData> entriesWithLatestStatus = entriesByStatus.get(latestStatus);
+
+		// Within latest status, select entry with latest timestamp
+		return selectLatestByTimestamp(entriesWithLatestStatus);
+	}
+
+	/**
+	 * Selects the most advanced status from a set of statuses
+	 * Priority order: DELIVERED > NON_DELIVERED > DELIVERING > TO_BE_DELIVERED > WAITING > HOLDING
+	 */
+	static MessageStatus selectLatestStatus(Set<MessageStatus> statuses) {
+		if (statuses == null || statuses.isEmpty()) {
+			return null;
+		}
+
+		// Priority order (latest/most advanced first)
+		MessageStatus[] priorityOrder = {
+			MessageStatus.DELIVERED,
+			MessageStatus.NON_DELIVERED,
+			MessageStatus.DELIVERING,
+			MessageStatus.TO_BE_DELIVERED,
+			MessageStatus.WAITING,
+			MessageStatus.HOLDING
+		};
+
+		for (MessageStatus status : priorityOrder) {
+			if (statuses.contains(status)) {
+				return status;
+			}
+		}
+
+		// Fallback: return any status
+		return statuses.iterator().next();
+	}
+
+	/**
+	 * Selects the entry with the latest timestamp from a list
+	 * Uses TransmitDeliverTime as the timestamp
+	 */
+	static MessageData selectLatestByTimestamp(List<MessageData> entries) {
+		if (entries == null || entries.isEmpty()) {
+			return null;
+		}
+
+		if (entries.size() == 1) {
+			return entries.get(0);
+		}
+
+		MessageData latest = entries.get(0);
+		Date latestTimeDate = latest.getTransmitDeliverTime();
+		long latestTime = latestTimeDate != null ? latestTimeDate.getTime() : 0;
+
+		for (MessageData entry : entries) {
+			Date timeDate = entry.getTransmitDeliverTime();
+			long time = timeDate != null ? timeDate.getTime() : 0;
+			if (time > latestTime) {
+				latestTime = time;
+				latest = entry;
+			}
+		}
+
+		return latest;
 	}
 }

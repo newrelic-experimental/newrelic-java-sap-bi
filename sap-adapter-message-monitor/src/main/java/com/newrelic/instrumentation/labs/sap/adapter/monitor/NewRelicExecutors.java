@@ -13,8 +13,13 @@ import com.newrelic.api.agent.NewRelic;
 
 public class NewRelicExecutors {
 
-	private static final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(10, 30, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(50), new AdapterMonitorThreadFactory());
-	private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(5);
+	// Reduced thread pool: only 2-4 threads needed for AttributeCheckers
+	// Most work happens in consumer threads, this is just for startup/occasional tasks
+	private static final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(2, 4, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(50), new AdapterMonitorThreadFactory());
+
+	// Reduced scheduled pool: only 2 threads needed for periodic housekeeping tasks
+	// Handles: queue metrics (10s), cache cleanup (60s), thread metrics (2min)
+	private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(2);
 	
 	public static Future<?> addRunnableToThreadPool(Runnable runnable) {
 		AdapterMonitorLogger.logMessage(Level.FINE,"Adding Runnable to ThreadPool " + runnable.hashCode());
